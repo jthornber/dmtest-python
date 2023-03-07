@@ -1,10 +1,12 @@
 import os
 import tempfile
+import dmtest.process as process
+import dmtest.units as units
 
 from time import time, sleep
 
 
-def temp_file(suffix=None):
+class TempFile:
     """
     Context manager that creates a temporary file and returns a file handle to
     the caller.
@@ -23,15 +25,31 @@ def temp_file(suffix=None):
         file.flush()
         # Do something with the file...
     """
-    fd, path = tempfile.mkstemp(suffix=suffix)
-    try:
-        with os.fdopen(fd, 'w') as file:
-            yield (file, path)
-    finally:
-        os.remove(path)
+
+    def __init__(self, suffix=None):
+        print("in TempFile")
+        (fd, path) = tempfile.mkstemp(suffix)
+        f = os.fdopen(fd, "w")
+        self._f = f
+        self._path = path
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self._f.close()
+        os.remove(self._path)
+
+    @property
+    def file(self):
+        return self._f
+
+    @property
+    def path(self):
+        return self._path
 
 
-def retry_if_fails(func, max_retries=1, retry_delay=1):
+def retry_if_fails(func, *, max_retries=1, retry_delay=1):
     """
     Calls the given function and retries it until it succeeds or the maximum
     number of retries is reached.
@@ -71,3 +89,38 @@ def ensure_elapsed(thunk, seconds):
     if elapsed < seconds:
         sleep(seconds - elapsed)
     r
+
+
+def _dd_size(ifile, ofile):
+    if ofile == "/dev/null":
+        size = dev_size(ifile)
+    else:
+        size = dev_size(ofile)
+
+
+def _dd_device(ifile, ofile, oflag, sectors):
+    if not sectors:
+        sectors = _dd_size(ifile, ofile)
+
+    block_size = units.meg(64)
+    (count, remainder) = divmod(sectors, block_size)
+
+    if count > 0:
+        process.run(
+            f"dd if={ifile} of={ofile} {oflag} bs={block_size * 512} count={count}"
+        )
+
+    if remainder > 0:
+        # deliberately missing out oflag because we don't want O_DIRECT
+        process.run(
+            f"dd if={ifile} of={ofile} bs=512 count={remainder} seek={count * block_size}"
+        )
+
+
+def wipe_device(dev, sectors=None):
+    _dd_device("/dev/zero", dev, "oflag=direct", sectors)
+
+
+def dev_size(dev):
+    (_, stdout, _) = process.run(f"blockdev --getsz {dev}")
+    return int(stdout)

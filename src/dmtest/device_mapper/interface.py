@@ -1,7 +1,7 @@
 import re
-import utils
+import dmtest.utils as utils
 
-from process import run
+from dmtest.process import run
 
 
 def create(name):
@@ -9,17 +9,23 @@ def create(name):
 
 
 def load(name, table):
-    with utils.temp_file() as (f, path):
-        f.write(table.to_string())
+    with utils.TempFile() as tf:
+        print(f"{tf}")
+        f = tf.file
+        lines = table.table_lines()
+        print(f"table {lines}")
+        f.write(lines)
         f.flush()
-        run(f"dmsetup load {name} {path}")
+        run(f"dmsetup load {name} {tf.path}")
 
 
 def load_ro(name, table):
-    with utils.temp_file() as (f, path):
+    with utils.TempFile() as tf:
+        f = tf.file()
+
         f.write(table.to_string())
         f.flush()
-        run(f"dmsetup load --readonly {name} {path}")
+        run(f"dmsetup load --readonly {name} {tf.path()}")
 
 
 def suspend(name):
@@ -27,12 +33,12 @@ def suspend(name):
 
 
 def resume(name):
-    run(f'dmsetup resume {name}')
+    run(f"dmsetup resume {name}")
 
 
 def remove(name):
-    def _remove(name):
-        run(f'dmsetup remove {name}')
+    def _remove():
+        run(f"dmsetup remove {name}")
 
     utils.retry_if_fails(_remove, retry_delay=5)
 

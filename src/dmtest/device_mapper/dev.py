@@ -1,14 +1,24 @@
 import logging
 import random
 
-import device_mapper.interface as dm
+import dmtest.device_mapper.interface as dm
 
 
 class Dev:
     def __init__(self, name):
         self._name = name
-        self._path = f'/dev/mapper/{name}'
+        self._path = f"/dev/mapper/{name}"
         self._active_table = None
+        dm.create(self._name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.remove()
+        # FIXME: put back in
+        # self.post_remove_check()
+        return None
 
     @property
     def name(self):
@@ -19,9 +29,11 @@ class Dev:
         return self._path
 
     def load(self, table):
+        self._active_table = table
         dm.load(self._name, table)
 
     def load_ro(self, table):
+        self._active_table = table
         dm.load_ro(self._name, table)
 
     def suspend(self):
@@ -69,38 +81,35 @@ class Dev:
         dm.wait(self._name, event_nr)
 
     def event_nr(self):
-        output = dm.status(self._name, '-v')
+        output = dm.status(self._name, "-v")
         dm.extract_event_nr(output)
 
 
-# FIXME: we should double check to see if this is unique
-def _create_name():
-    return f"test-dev-{random.randint(0, 1000000)}"
+def dev(table, read_only=False):
+    def _create_name():
+        return f"test-dev-{random.randint(0, 1000000)}"
 
-
-def _anon_dev(table=None, read_only=False):
     dev = Dev(_create_name())
-    if table:
-        if read_only:
-            dev.load_ro(table)
-        else:
-            dev.load(table)
-        dev.resume()
+    if read_only:
+        dev.load_ro(table)
+    else:
+        dev.load(table)
+    dev.resume()
     return dev
 
 
-def dev(table, read_only=False):
-    try:
-        dev = Dev(lambda: _anon_dev(table, read_only), 1)
-        try:
-            yield dev
-        finally:
-            dev.remove()
-            dev.post_remove_check()
-    except Exception as e:
-        # Dev constructor failed, nothing we can do apart from log it
-        logging.error(f"Failed to create device: {e}")
-        pass
+# def dev(table, read_only=False):
+# try:
+# dev = Dev(lambda: _anon_dev(table, read_only), 1)
+# try:
+# yield dev
+# finally:
+# dev.remove()
+# dev.post_remove_check()
+# except Exception as e:
+## Dev constructor failed, nothing we can do apart from log it
+# logging.error(f"Failed to create device: {e}")
+# pass
 
 
 def devs(tables):
