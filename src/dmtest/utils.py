@@ -27,7 +27,6 @@ class TempFile:
     """
 
     def __init__(self, suffix=None):
-        print("in TempFile")
         (fd, path) = tempfile.mkstemp(suffix)
         f = os.fdopen(fd, "w")
         self._f = f

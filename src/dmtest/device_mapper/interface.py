@@ -1,5 +1,6 @@
 import re
 import dmtest.utils as utils
+import logging as log
 
 from dmtest.process import run
 
@@ -10,10 +11,9 @@ def create(name):
 
 def load(name, table):
     with utils.TempFile() as tf:
-        print(f"{tf}")
         f = tf.file
         lines = table.table_lines()
-        print(f"table {lines}")
+        log.info(f"table file '{tf.path}':\n{lines}")
         f.write(lines)
         f.flush()
         run(f"dmsetup load {name} {tf.path}")
@@ -22,8 +22,9 @@ def load(name, table):
 def load_ro(name, table):
     with utils.TempFile() as tf:
         f = tf.file()
-
-        f.write(table.to_string())
+        lines = table.table_lines()
+        log.info(f"table file '{tf.path}':\n{lines}")
+        f.write(lines)
         f.flush()
         run(f"dmsetup load --readonly {name} {tf.path()}")
 

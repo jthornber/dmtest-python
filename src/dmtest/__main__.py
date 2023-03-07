@@ -2,6 +2,8 @@ import argparse
 import dmtest.fixture
 import dmtest.test_register as test_register
 import dmtest.thin.creation_tests as thin_creation
+import logging as log
+import os
 
 
 # -----------------------------------------
@@ -19,11 +21,21 @@ def cmd_list(tests, args):
 
 def cmd_run(tests, args):
     for p in tests.paths(args.rx):
-        print("***************************************")
-        print(f"Running '{p}'")
+        print(f"{p} ... ", end="", flush=True)
+        log.info(f"Running '{p}'")
 
         fix = dmtest.fixture.Fixture()
-        tests.run(p, fix)
+        passed = True
+        try:
+            tests.run(p, fix)
+        except Exception:
+            passed = False
+
+        if passed:
+            print("PASS")
+        else:
+            print("FAIL")
+            log.info(f"*** FAIL {p}")
 
 
 # -----------------------------------------
@@ -57,11 +69,23 @@ def command_line_parser():
     return parser
 
 
+def setup_log():
+    logfile = "dmtest.log"
+    os.remove(logfile)
+    log.basicConfig(
+        filename="dmtest.log",
+        format="%(asctime)s %(levelname)s %(message)s",
+        level=log.INFO,
+    )
+
+
 # -----------------------------------------
 # Main
 
 
 def main():
+    setup_log()
+
     parser = command_line_parser()
     args = parser.parse_args()
 
