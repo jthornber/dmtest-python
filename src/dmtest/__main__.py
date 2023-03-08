@@ -1,4 +1,5 @@
 import argparse
+import dmtest.bufio.bufio_tests as bufio
 import dmtest.fixture
 import dmtest.test_register as test_register
 import dmtest.thin.creation_tests as thin_creation
@@ -28,8 +29,9 @@ def cmd_run(tests, args):
         passed = True
         try:
             tests.run(p, fix)
-        except Exception:
+        except Exception as e:
             passed = False
+            log.error(f"Exception caught: {e}")
 
         if passed:
             print("PASS")
@@ -91,6 +93,7 @@ def main():
 
     tests = test_register.TestRegister()
     thin_creation.register(tests)
+    bufio.register(tests)
 
     args.func(tests, args)
 

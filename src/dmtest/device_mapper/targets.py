@@ -171,3 +171,8 @@ class FakeDiscardTarget(Target):
             len(extra_opts),
             *extra_opts,
         )
+
+
+class BufioTestTarget(Target):
+    def __init__(self, sector_count, dev):
+        super().__init__("bufio_test", sector_count, dev)

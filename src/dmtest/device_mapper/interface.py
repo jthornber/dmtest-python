@@ -41,7 +41,8 @@ def remove(name):
     def _remove():
         run(f"dmsetup remove {name}")
 
-    utils.retry_if_fails(_remove, retry_delay=5)
+    # udev is slow and sometimes prevents remove from completing
+    utils.retry_if_fails(_remove, retry_delay=1)
 
 
 def message(name, sector, *args):

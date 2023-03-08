@@ -31,7 +31,6 @@ class TestRegister:
 
     def paths(self, patterns=None):
         if patterns:
-            print("building predicate")
             pred = _build_predicate_regex(patterns)
         else:
             pred = always_true

@@ -1,9 +1,9 @@
-import os
-import tempfile
 import dmtest.process as process
 import dmtest.units as units
-
-from time import time, sleep
+import logging as log
+import os
+import tempfile
+import time
 
 
 class TempFile:
@@ -66,12 +66,11 @@ def retry_if_fails(func, *, max_retries=1, retry_delay=1):
     """
     for i in range(max_retries):
         try:
-            result = func()
-            return result
+            return func()
         except Exception:
-            if i == max_retries - 1:
-                raise
+            log.info(f"sleeping before retry, {retry_delay}s")
             time.sleep(retry_delay)
+    return func()
 
 
 def ensure_elapsed(thunk, seconds):
@@ -82,19 +81,19 @@ def ensure_elapsed(thunk, seconds):
     Returns:
     Whatever is returned by 'thunk'
     """
-    start = time()
+    start = time.time()
     r = thunk()
-    elapsed = time() - start
+    elapsed = time.time() - start
     if elapsed < seconds:
-        sleep(seconds - elapsed)
+        time.sleep(seconds - elapsed)
     r
 
 
 def _dd_size(ifile, ofile):
     if ofile == "/dev/null":
-        size = dev_size(ifile)
+        return dev_size(ifile)
     else:
-        size = dev_size(ofile)
+        return dev_size(ofile)
 
 
 def _dd_device(ifile, ofile, oflag, sectors):
