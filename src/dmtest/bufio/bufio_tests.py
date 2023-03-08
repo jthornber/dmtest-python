@@ -44,37 +44,37 @@ class BufioProgram:
 
     # FIXME: add labels
     def jmp(self, addr):
-        self._bytes += struct.pack("BH", Instructions.I_JMP, addr)
+        self._bytes += struct.pack("=BH", Instructions.I_JMP, addr)
 
     def bnz(self, addr, reg):
-        self._bytes += struct.pack("BHB", Instructions.I_BNZ, addr, reg)
+        self._bytes += struct.pack("=BHB", Instructions.I_BNZ, addr, reg)
 
     def bz(self, addr, reg):
-        self._bytes += struct.pack("BHB", Instructions.I_BZ, addr, reg)
+        self._bytes += struct.pack("=BHB", Instructions.I_BZ, addr, reg)
 
     def halt(self):
-        self._bytes += struct.pack("B", Instructions.I_HALT)
+        self._bytes += struct.pack("=B", Instructions.I_HALT)
 
     def lit(self, val, reg):
-        self._bytes += struct.pack("BIB", Instructions.I_LIT, val, reg)
+        self._bytes += struct.pack("=BIB", Instructions.I_LIT, val, reg)
 
     def sub(self, reg1, reg2):
-        self._bytes += struct.pack("BBB", Instructions.I_SUB, reg1, reg2)
+        self._bytes += struct.pack("=BBB", Instructions.I_SUB, reg1, reg2)
 
     def add(self, reg1, reg2):
-        self._bytes += struct.pack("BBB", Instructions.I_SUB, reg1, reg2)
+        self._bytes += struct.pack("=BBB", Instructions.I_SUB, reg1, reg2)
 
     def down_read(self, lock):
-        self._bytes += struct.pack("BB", Instructions.I_DOWN_READ, lock)
+        self._bytes += struct.pack("=BB", Instructions.I_DOWN_READ, lock)
 
     def up_read(self, lock):
-        self._bytes += struct.pack("BB", Instructions.I_UP_READ, lock)
+        self._bytes += struct.pack("=BB", Instructions.I_UP_READ, lock)
 
     def down_write(self, lock):
-        self._bytes += struct.pack("BB", Instructions.I_DOWN_WRITE, lock)
+        self._bytes += struct.pack("=BB", Instructions.I_DOWN_WRITE, lock)
 
     def up_write(self, lock):
-        self._bytes += struct.pack("BB", Instructions.I_UP_READ, lock)
+        self._bytes += struct.pack("=BB", Instructions.I_UP_READ, lock)
 
     def init_barrier(self):
         pass
@@ -82,35 +82,67 @@ class BufioProgram:
     def wait_barrier(self):
         pass
 
-    def new_buf(self, block, reg):
-        self._bytes += struct.pack("BIB", Instructions.I_NEW_BUF, block, reg)
+    def new_buf(self, block_reg, dest_reg):
+        self._bytes += struct.pack("=BBB", Instructions.I_NEW_BUF, block_reg, dest_reg)
 
-    def read_buf(self, block, reg):
-        self._bytes += struct.pack("BIB", Instructions.I_READ_BUF, block, reg)
+    def read_buf(self, block_reg, dest_reg):
+        self._bytes += struct.pack("=BBB", Instructions.I_READ_BUF, block_reg, dest_reg)
 
-    def get_buf(self, block, reg):
-        self._bytes += struct.pack("BIB", Instructions.I_GET_BUF, block, reg)
+    def get_buf(self, block_reg, dest_reg):
+        self._bytes += struct.pack("=BBB", Instructions.I_GET_BUF, block_reg, dest_reg)
 
     def put_buf(self, reg):
-        self._bytes += struct.pack("BB", Instructions.I_PUT_BUF, reg)
+        self._bytes += struct.pack("=BB", Instructions.I_PUT_BUF, reg)
 
     def mark_dirty(self, reg):
-        self._bytes += struct.pack("BB", Instructions.I_MARK_DIRTY, reg)
+        self._bytes += struct.pack("=BB", Instructions.I_MARK_DIRTY, reg)
 
     def write_async(self):
-        self._bytes += struct.pack("B", Instructions.I_WRITE_ASYNC)
+        self._bytes += struct.pack("=B", Instructions.I_WRITE_ASYNC)
 
     def write_sync(self):
-        self._bytes += struct.pack("B", Instructions.I_WRITE_SYNC)
+        self._bytes += struct.pack("=B", Instructions.I_WRITE_SYNC)
 
     def flush(self):
-        self._bytes += struct.pack("B", Instructions.I_FLUSH)
+        self._bytes += struct.pack("=B", Instructions.I_FLUSH)
 
     def forget(self, block):
-        self._bytes += struct.pack("BI", Instructions.I_FORGET, block)
+        self._bytes += struct.pack("=BI", Instructions.I_FORGET, block)
 
     def forget_range(self, block, len):
-        self._bytes += struct.pack("BII", Instructions.I_FORGET_RANGE, block, len)
+        self._bytes += struct.pack("=BII", Instructions.I_FORGET_RANGE, block, len)
+
+
+class AutoProgram:
+    def __init__(self, bufio_dev):
+        self._bufio_dev = bufio_dev
+        self._code = BufioProgram()
+
+    def __enter__(self):
+        return self._code
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type:
+            # don't bother running the program
+            return
+
+        bytes = self._code.compile()
+        if len(bytes) > 4096:
+            raise ValueError("buffer is too large")
+
+        fd = os.open(self._bufio_dev.path, os.O_DIRECT | os.O_WRONLY)
+        try:
+            # Map a single page of memory to the file
+            page_size = os.sysconf("SC_PAGE_SIZE")
+            with mmap.mmap(-1, page_size) as mem:
+                mem.write(bytes)
+                os.write(fd, mem)
+        finally:
+            os.close(fd)
+
+
+def program(dev):
+    return AutoProgram(dev)
 
 
 class BufioStack:
@@ -133,23 +165,23 @@ def t_create(fix):
 
 
 def t_empty_program(fix):
-    cfg = fix.cfg
-    stack = BufioStack(cfg["data_dev"])
+    stack = BufioStack(fix.cfg["data_dev"])
     with stack.activate() as dev:
-        code = BufioProgram()
-        code.halt()
+        with program(dev) as code:
+            code.halt()
 
-        fd = os.open(dev.path, os.O_DIRECT | os.O_WRONLY)
-        try:
-            # Map a single page of memory to the file
-            page_size = os.sysconf("SC_PAGE_SIZE")
-            with mmap.mmap(-1, page_size) as mem:
-                mem.write(code.compile())
-                os.write(fd, mem)
-        finally:
-            os.close(fd)
+
+def t_new_buf(fix):
+    stack = BufioStack(fix.cfg["data_dev"])
+    with stack.activate() as dev:
+        with program(dev) as code:
+            code.lit(123, 0)
+            code.new_buf(0, 1)
+            code.put_buf(1)
+            code.halt()
 
 
 def register(tests):
     tests.register("/bufio/create", t_create)
     tests.register("/bufio/empty-program", t_empty_program)
+    tests.register("/bufio/new-buf", t_new_buf)
