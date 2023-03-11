@@ -6,7 +6,9 @@ import enum
 import logging as log
 import mmap
 import os
+import random
 import struct
+import threading
 
 
 class Instructions(enum.IntEnum):
@@ -33,17 +35,29 @@ class Instructions(enum.IntEnum):
     I_FLUSH = 20
     I_FORGET = 21
     I_FORGET_RANGE = 22
+    I_LOOP = 23
+    I_STAMP = 24
+    I_VERIFY = 25
 
 
 class BufioProgram:
     def __init__(self):
         self._bytes = b""
+        self._labels = {}
 
     def compile(self):
         return self._bytes[:]
 
-    # FIXME: add labels
-    def jmp(self, addr):
+    def label(self, name):
+        self._labels[name] = len(self._bytes)
+
+    def label_to_addr(self, name):
+        if name not in self._labels:
+            raise ValueError("No such label '{}'", name)
+        return self._labels[name]
+
+    def jmp(self, name):
+        addr = self.label_to_addr(name)
         self._bytes += struct.pack("=BH", Instructions.I_JMP, addr)
 
     def bnz(self, addr, reg):
@@ -62,7 +76,7 @@ class BufioProgram:
         self._bytes += struct.pack("=BBB", Instructions.I_SUB, reg1, reg2)
 
     def add(self, reg1, reg2):
-        self._bytes += struct.pack("=BBB", Instructions.I_SUB, reg1, reg2)
+        self._bytes += struct.pack("=BBB", Instructions.I_ADD, reg1, reg2)
 
     def down_read(self, lock):
         self._bytes += struct.pack("=BB", Instructions.I_DOWN_READ, lock)
@@ -111,6 +125,16 @@ class BufioProgram:
 
     def forget_range(self, block, len):
         self._bytes += struct.pack("=BII", Instructions.I_FORGET_RANGE, block, len)
+
+    def loop(self, name, reg):
+        addr = self.label_to_addr(name)
+        self._bytes += struct.pack("=BHB", Instructions.I_LOOP, addr, reg)
+
+    def stamp(self, buf_reg, pattern_reg):
+        self._bytes += struct.pack("=BBB", Instructions.I_STAMP, buf_reg, pattern_reg)
+
+    def verify(self, buf_reg, pattern_reg):
+        self._bytes += struct.pack("=BBB", Instructions.I_VERIFY, buf_reg, pattern_reg)
 
 
 class AutoProgram:
@@ -171,17 +195,123 @@ def t_empty_program(fix):
             code.halt()
 
 
+def do_new_buf(dev, base):
+    with program(dev) as code:
+        code.lit(base, 0)  # block
+        code.lit(1, 1)  # increment
+        code.lit(1024, 2)  # loop counter
+
+        code.label("loop")
+        code.new_buf(0, 3)
+        code.put_buf(3)
+        code.add(0, 1)
+        code.loop("loop", 2)
+        code.halt()
+
+
 def t_new_buf(fix):
+    nr_threads = 16
+    nr_gets = 1024
+
+    stack = BufioStack(fix.cfg["data_dev"])
+    with stack.activate() as dev:
+        threads = []
+
+        for t in range(nr_threads):
+            tid = threading.Thread(target=do_new_buf, args=(dev, t * nr_gets))
+            threads.append(tid)
+
+        for tid in threads:
+            tid.start()
+
+        for tid in threads:
+            tid.join()
+
+
+def t_stamper(fix):
     stack = BufioStack(fix.cfg["data_dev"])
     with stack.activate() as dev:
         with program(dev) as code:
-            code.lit(123, 0)
-            code.new_buf(0, 1)
-            code.put_buf(1)
+            code.lit(0, 0)  # block
+            code.lit(1, 1)  # increment
+            code.lit(1024, 2)  # loop counter
+            code.lit(random.randint(0, 1024), 8)
+
+            code.label("loop")
+
+            # stamp
+            code.new_buf(0, 3)
+            code.stamp(3, 8)
+            code.mark_dirty(3)
+            code.put_buf(3)
+
+            # write
+            code.write_sync()
+            code.forget(0)
+
+            # re-read and verify
+            code.read_buf(0, 3)
+            code.verify(3, 8)
+            code.put_buf(3)
+
+            code.add(0, 1)
+            code.add(8, 1)
+            code.loop("loop", 2)
             code.halt()
+
+
+def do_stamper(dev, base):
+    with program(dev) as code:
+        code.lit(base, 0)  # block
+        code.lit(1, 1)  # increment
+        code.lit(1024, 2)  # loop counter
+        code.lit(random.randint(0, 1024), 8)
+
+        code.label("loop")
+
+        # stamp
+        code.new_buf(0, 3)
+        code.stamp(3, 8)
+        code.mark_dirty(3)
+        code.put_buf(3)
+
+        # write
+        code.write_sync()
+        code.forget(0)
+
+        # re-read and verify
+        code.read_buf(0, 3)
+        code.verify(3, 8)
+        code.put_buf(3)
+
+        code.add(0, 1)
+        code.add(8, 1)
+        code.loop("loop", 2)
+        code.halt()
+
+
+def t_many_stampers(fix):
+    nr_threads = 16
+    nr_gets = 1024
+
+    stack = BufioStack(fix.cfg["data_dev"])
+    with stack.activate() as dev:
+        threads = []
+
+        for t in range(nr_threads):
+            tid = threading.Thread(target=do_stamper, args=(dev, t * nr_gets))
+            threads.append(tid)
+
+        for tid in threads:
+            tid.start()
+
+        for tid in threads:
+            tid.join()
 
 
 def register(tests):
     tests.register("/bufio/create", t_create)
     tests.register("/bufio/empty-program", t_empty_program)
     tests.register("/bufio/new-buf", t_new_buf)
+    tests.register("/bufio/stamper", t_stamper)
+    tests.register("/bufio/many-stampers", t_many_stampers)
