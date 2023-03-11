@@ -44,9 +44,15 @@ class BufioProgram:
     def __init__(self):
         self._bytes = b""
         self._labels = {}
+        self._reg_alloc = 0
 
     def compile(self):
         return self._bytes[:]
+
+    def alloc_reg(self):
+        reg = self._reg_alloc
+        self._reg_alloc += 1
+        return reg
 
     def label(self, name):
         self._labels[name] = len(self._bytes)
@@ -191,22 +197,27 @@ def t_create(fix):
 def t_empty_program(fix):
     stack = BufioStack(fix.cfg["data_dev"])
     with stack.activate() as dev:
-        with program(dev) as code:
-            code.halt()
+        with program(dev) as p:
+            p.halt()
 
 
 def do_new_buf(dev, base):
-    with program(dev) as code:
-        code.lit(base, 0)  # block
-        code.lit(1, 1)  # increment
-        code.lit(1024, 2)  # loop counter
+    with program(dev) as p:
+        block = p.alloc_reg()
+        increment = p.alloc_reg()
+        loop_counter = p.alloc_reg()
+        buf = p.alloc_reg()
 
-        code.label("loop")
-        code.new_buf(0, 3)
-        code.put_buf(3)
-        code.add(0, 1)
-        code.loop("loop", 2)
-        code.halt()
+        p.lit(base, block)
+        p.lit(1, increment)
+        p.lit(1024, loop_counter)
+
+        p.label("loop")
+        p.new_buf(block, buf)
+        p.put_buf(buf)
+        p.add(block, increment)
+        p.loop("loop", loop_counter)
+        p.halt()
 
 
 def t_new_buf(fix):
@@ -231,63 +242,75 @@ def t_new_buf(fix):
 def t_stamper(fix):
     stack = BufioStack(fix.cfg["data_dev"])
     with stack.activate() as dev:
-        with program(dev) as code:
-            code.lit(0, 0)  # block
-            code.lit(1, 1)  # increment
-            code.lit(1024, 2)  # loop counter
-            code.lit(random.randint(0, 1024), 8)
+        with program(dev) as p:
+            block = p.alloc_reg()
+            increment = p.alloc_reg()
+            loop_counter = p.alloc_reg()
+            buf = p.alloc_reg()
+            pattern = p.alloc_reg()
 
-            code.label("loop")
+            p.lit(0, block)
+            p.lit(1, increment)
+            p.lit(1024, loop_counter)
+            p.lit(random.randint(0, 1024), pattern)
+
+            p.label("loop")
 
             # stamp
-            code.new_buf(0, 3)
-            code.stamp(3, 8)
-            code.mark_dirty(3)
-            code.put_buf(3)
+            p.new_buf(block, buf)
+            p.stamp(buf, pattern)
+            p.mark_dirty(buf)
+            p.put_buf(buf)
 
             # write
-            code.write_sync()
-            code.forget(0)
+            p.write_sync()
+            p.forget(block)
 
             # re-read and verify
-            code.read_buf(0, 3)
-            code.verify(3, 8)
-            code.put_buf(3)
+            p.read_buf(block, buf)
+            p.verify(buf, pattern)
+            p.put_buf(buf)
 
-            code.add(0, 1)
-            code.add(8, 1)
-            code.loop("loop", 2)
-            code.halt()
+            p.add(block, increment)
+            p.add(pattern, increment)
+            p.loop("loop", loop_counter)
+            p.halt()
 
 
 def do_stamper(dev, base):
-    with program(dev) as code:
-        code.lit(base, 0)  # block
-        code.lit(1, 1)  # increment
-        code.lit(1024, 2)  # loop counter
-        code.lit(random.randint(0, 1024), 8)
+    with program(dev) as p:
+        block = p.alloc_reg()
+        increment = p.alloc_reg()
+        loop_counter = p.alloc_reg()
+        buf = p.alloc_reg()
+        pattern = p.alloc_reg()
 
-        code.label("loop")
+        p.lit(base, block)
+        p.lit(1, increment)
+        p.lit(1024, loop_counter)
+        p.lit(random.randint(0, 1024), pattern)
+
+        p.label("loop")
 
         # stamp
-        code.new_buf(0, 3)
-        code.stamp(3, 8)
-        code.mark_dirty(3)
-        code.put_buf(3)
+        p.new_buf(block, buf)
+        p.stamp(buf, pattern)
+        p.mark_dirty(buf)
+        p.put_buf(buf)
 
         # write
-        code.write_sync()
-        code.forget(0)
+        p.write_sync()
+        p.forget(block)
 
         # re-read and verify
-        code.read_buf(0, 3)
-        code.verify(3, 8)
-        code.put_buf(3)
+        p.read_buf(block, buf)
+        p.verify(buf, pattern)
+        p.put_buf(buf)
 
-        code.add(0, 1)
-        code.add(8, 1)
-        code.loop("loop", 2)
-        code.halt()
+        p.add(block, increment)
+        p.add(pattern, increment)
+        p.loop("loop", loop_counter)
+        p.halt()
 
 
 def t_many_stampers(fix):
