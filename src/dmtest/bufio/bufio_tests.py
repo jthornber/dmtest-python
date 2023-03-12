@@ -11,6 +11,8 @@ import random
 import struct
 import threading
 
+from contextlib import contextmanager
+
 
 class Instructions(enum.IntEnum):
     I_JMP = 0
@@ -148,9 +150,26 @@ class BufioProgram:
         self._bytes += struct.pack("=BB", Instructions.I_CHECKPOINT, reg)
 
 
-class AutoProgram:
-    def __init__(self, bufio_dev):
-        self._bufio_dev = bufio_dev
+def exec_program(dev, program):
+    bytes = program.compile()
+    if len(bytes) > 4096:
+        raise ValueError("buffer is too large")
+
+    fd = os.open(dev.path, os.O_DIRECT | os.O_WRONLY)
+    try:
+        # Map a single page of memory to the file
+        page_size = os.sysconf("SC_PAGE_SIZE")
+        with mmap.mmap(-1, page_size) as mem:
+            mem.write(bytes)
+            os.write(fd, mem)
+    finally:
+        os.close(fd)
+
+
+class Code:
+    def __init__(self, thread_set, count):
+        self._thread_set = thread_set
+        self._count = count
         self._code = BufioProgram()
 
     def __enter__(self):
@@ -158,26 +177,41 @@ class AutoProgram:
 
     def __exit__(self, exc_type, exc_value, traceback):
         if exc_type:
-            # don't bother running the program
             return
 
-        bytes = self._code.compile()
-        if len(bytes) > 4096:
-            raise ValueError("buffer is too large")
-
-        fd = os.open(self._bufio_dev.path, os.O_DIRECT | os.O_WRONLY)
-        try:
-            # Map a single page of memory to the file
-            page_size = os.sysconf("SC_PAGE_SIZE")
-            with mmap.mmap(-1, page_size) as mem:
-                mem.write(bytes)
-                os.write(fd, mem)
-        finally:
-            os.close(fd)
+        self._thread_set.add_thread(self._code, self._count)
 
 
-def program(dev):
-    return AutoProgram(dev)
+class ThreadSet:
+    def __init__(self, dev):
+        self._dev = dev
+        self._programs = []
+
+    def program(self, count=1):
+        return Code(self, count)
+
+    def add_thread(self, code, count):
+        self._programs.append((code, count))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type:
+            return
+
+        threads = []
+
+        for code, count in self._programs:
+            for _ in range(count):
+                tid = threading.Thread(target=exec_program, args=(self._dev, code))
+                threads.append(tid)
+
+        for tid in threads:
+            tid.start()
+
+        for tid in threads:
+            tid.join()
 
 
 class BufioStack:
@@ -192,6 +226,18 @@ class BufioStack:
         return dmdev.dev(self._table())
 
 
+# Combines a bufio stack and ThreadSet
+@contextmanager
+def bufio_threads(data_dev):
+    stack = BufioStack(data_dev)
+    with stack.activate() as dev:
+        with ThreadSet(dev) as thread_set:
+            yield thread_set
+
+
+# -----------------------------------------------
+
+
 def t_create(fix):
     cfg = fix.cfg
     stack = BufioStack(cfg["data_dev"])
@@ -200,54 +246,42 @@ def t_create(fix):
 
 
 def t_empty_program(fix):
-    stack = BufioStack(fix.cfg["data_dev"])
-    with stack.activate() as dev:
-        with program(dev) as p:
+    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
+        with thread_set.program() as p:
             p.halt()
 
 
-def do_new_buf(dev, base):
-    with program(dev) as p:
-        block = p.alloc_reg()
-        increment = p.alloc_reg()
-        loop_counter = p.alloc_reg()
-        buf = p.alloc_reg()
+def do_new_buf(p, base):
+    block = p.alloc_reg()
+    increment = p.alloc_reg()
+    loop_counter = p.alloc_reg()
+    buf = p.alloc_reg()
 
-        p.lit(base, block)
-        p.lit(1, increment)
-        p.lit(1024, loop_counter)
+    p.lit(base, block)
+    p.lit(1, increment)
+    p.lit(1024, loop_counter)
 
-        p.label("loop")
-        p.new_buf(block, buf)
-        p.put_buf(buf)
-        p.add(block, increment)
-        p.loop("loop", loop_counter)
-        p.halt()
+    p.label("loop")
+    p.new_buf(block, buf)
+    p.put_buf(buf)
+    p.add(block, increment)
+    p.loop("loop", loop_counter)
+    p.halt()
 
 
 def t_new_buf(fix):
     nr_threads = 16
     nr_gets = 1024
 
-    stack = BufioStack(fix.cfg["data_dev"])
-    with stack.activate() as dev:
-        threads = []
-
+    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
         for t in range(nr_threads):
-            tid = threading.Thread(target=do_new_buf, args=(dev, t * nr_gets))
-            threads.append(tid)
-
-        for tid in threads:
-            tid.start()
-
-        for tid in threads:
-            tid.join()
+            with thread_set.program() as p:
+                do_new_buf(p, t * nr_gets)
 
 
 def t_stamper(fix):
-    stack = BufioStack(fix.cfg["data_dev"])
-    with stack.activate() as dev:
-        with program(dev) as p:
+    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
+        with thread_set.program() as p:
             block = p.alloc_reg()
             increment = p.alloc_reg()
             loop_counter = p.alloc_reg()
@@ -282,68 +316,58 @@ def t_stamper(fix):
             p.halt()
 
 
-def do_stamper(dev, base):
-    with program(dev) as p:
-        block = p.alloc_reg()
-        increment = p.alloc_reg()
-        loop_counter = p.alloc_reg()
-        buf = p.alloc_reg()
-        pattern = p.alloc_reg()
+def do_stamper(p, base):
+    block = p.alloc_reg()
+    increment = p.alloc_reg()
+    loop_counter = p.alloc_reg()
+    buf = p.alloc_reg()
+    pattern = p.alloc_reg()
 
-        p.lit(base, block)
-        p.lit(1, increment)
-        p.lit(1024, loop_counter)
-        p.lit(random.randint(0, 1024), pattern)
+    p.lit(base, block)
+    p.lit(1, increment)
+    p.lit(1024, loop_counter)
+    p.lit(random.randint(0, 1024), pattern)
 
-        p.label("loop")
+    p.label("loop")
 
-        # stamp
-        p.new_buf(block, buf)
-        p.stamp(buf, pattern)
-        p.mark_dirty(buf)
-        p.put_buf(buf)
+    # stamp
+    p.new_buf(block, buf)
+    p.stamp(buf, pattern)
+    p.mark_dirty(buf)
+    p.put_buf(buf)
 
-        # write
-        p.write_sync()
-        p.forget(block)
+    # write
+    p.write_sync()
+    p.forget(block)
 
-        # re-read and verify
-        p.read_buf(block, buf)
-        p.verify(buf, pattern)
-        p.put_buf(buf)
+    # re-read and verify
+    p.read_buf(block, buf)
+    p.verify(buf, pattern)
+    p.put_buf(buf)
 
-        p.add(block, increment)
-        p.add(pattern, increment)
-        p.loop("loop", loop_counter)
-        p.halt()
+    p.add(block, increment)
+    p.add(pattern, increment)
+    p.loop("loop", loop_counter)
+    p.halt()
 
 
 def t_many_stampers(fix):
     nr_threads = 16
     nr_gets = 1024
 
-    stack = BufioStack(fix.cfg["data_dev"])
-    with stack.activate() as dev:
-        threads = []
-
+    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
         for t in range(nr_threads):
-            tid = threading.Thread(target=do_stamper, args=(dev, t * nr_gets))
-            threads.append(tid)
-
-        for tid in threads:
-            tid.start()
-
-        for tid in threads:
-            tid.join()
+            with thread_set.program() as p:
+                do_stamper(p, t * nr_gets)
 
 
 # Mainly here as a benchmark
 def t_writeback_many(fix):
     data_dev = fix.cfg["data_dev"]
     nr_blocks = units.gig(8) // 8
-    stack = BufioStack(data_dev)
-    with stack.activate() as dev:
-        with program(dev) as p:
+
+    with bufio_threads(data_dev) as thread_set:
+        with thread_set.program() as p:
             block = p.alloc_reg()
             increment = p.alloc_reg()
             loop_counter = p.alloc_reg()
