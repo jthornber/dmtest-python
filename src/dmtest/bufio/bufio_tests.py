@@ -167,9 +167,8 @@ def exec_program(dev, program):
 
 
 class Code:
-    def __init__(self, thread_set, count):
+    def __init__(self, thread_set):
         self._thread_set = thread_set
-        self._count = count
         self._code = BufioProgram()
 
     def __enter__(self):
@@ -179,7 +178,8 @@ class Code:
         if exc_type:
             return
 
-        self._thread_set.add_thread(self._code, self._count)
+        self._code.halt()
+        self._thread_set.add_thread(self._code)
 
 
 class ThreadSet:
@@ -187,11 +187,11 @@ class ThreadSet:
         self._dev = dev
         self._programs = []
 
-    def program(self, count=1):
-        return Code(self, count)
+    def program(self):
+        return Code(self)
 
-    def add_thread(self, code, count):
-        self._programs.append((code, count))
+    def add_thread(self, code):
+        self._programs.append(code)
 
     def __enter__(self):
         return self
@@ -202,10 +202,9 @@ class ThreadSet:
 
         threads = []
 
-        for code, count in self._programs:
-            for _ in range(count):
-                tid = threading.Thread(target=exec_program, args=(self._dev, code))
-                threads.append(tid)
+        for code in self._programs:
+            tid = threading.Thread(target=exec_program, args=(self._dev, code))
+            threads.append(tid)
 
         for tid in threads:
             tid.start()
@@ -214,23 +213,12 @@ class ThreadSet:
             tid.join()
 
 
-class BufioStack:
-    def __init__(self, data_dev):
-        self._data_dev = data_dev
-        self._data_size = utils.dev_size(data_dev)
-
-    def _table(self):
-        return table.Table(targets.BufioTestTarget(self._data_size, self._data_dev))
-
-    def activate(self):
-        return dmdev.dev(self._table())
-
-
-# Combines a bufio stack and ThreadSet
+# Activate bufio test device and create a thread set
 @contextmanager
 def bufio_threads(data_dev):
-    stack = BufioStack(data_dev)
-    with stack.activate() as dev:
+    data_size = utils.dev_size(data_dev)
+    t = table.Table(targets.BufioTestTarget(data_size, data_dev))
+    with dmdev.dev(t) as dev:
         with ThreadSet(dev) as thread_set:
             yield thread_set
 
@@ -239,16 +227,14 @@ def bufio_threads(data_dev):
 
 
 def t_create(fix):
-    cfg = fix.cfg
-    stack = BufioStack(cfg["data_dev"])
-    with stack.activate() as _:
+    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
         pass
 
 
 def t_empty_program(fix):
     with bufio_threads(fix.cfg["data_dev"]) as thread_set:
         with thread_set.program() as p:
-            p.halt()
+            pass
 
 
 def do_new_buf(p, base):
@@ -266,7 +252,6 @@ def do_new_buf(p, base):
     p.put_buf(buf)
     p.add(block, increment)
     p.loop("loop", loop_counter)
-    p.halt()
 
 
 def t_new_buf(fix):
@@ -313,7 +298,6 @@ def t_stamper(fix):
             p.add(block, increment)
             p.add(pattern, increment)
             p.loop("loop", loop_counter)
-            p.halt()
 
 
 def do_stamper(p, base):
@@ -348,7 +332,6 @@ def do_stamper(p, base):
     p.add(block, increment)
     p.add(pattern, increment)
     p.loop("loop", loop_counter)
-    p.halt()
 
 
 def t_many_stampers(fix):
@@ -393,7 +376,6 @@ def t_writeback_many(fix):
             p.checkpoint(loop_counter)
             p.write_sync()
             p.checkpoint(loop_counter)
-            p.halt()
 
 
 def register(tests):
