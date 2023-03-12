@@ -58,16 +58,10 @@ class BufioProgram:
         self._reg_alloc += 1
         return reg
 
-    def label(self, name):
-        self._labels[name] = len(self._bytes)
+    def label(self):
+        return len(self._bytes)
 
-    def label_to_addr(self, name):
-        if name not in self._labels:
-            raise ValueError("No such label '{}'", name)
-        return self._labels[name]
-
-    def jmp(self, name):
-        addr = self.label_to_addr(name)
+    def jmp(self, addr):
         self._bytes += struct.pack("=BH", Instructions.I_JMP, addr)
 
     def bnz(self, addr, reg):
@@ -82,11 +76,14 @@ class BufioProgram:
     def lit(self, val, reg):
         self._bytes += struct.pack("=BIB", Instructions.I_LIT, val, reg)
 
-    def sub(self, reg1, reg2):
-        self._bytes += struct.pack("=BBB", Instructions.I_SUB, reg1, reg2)
+    def sub(self, reg1, v):
+        self._bytes += struct.pack("=BBB", Instructions.I_SUB, reg1, v)
 
-    def add(self, reg1, reg2):
-        self._bytes += struct.pack("=BBB", Instructions.I_ADD, reg1, reg2)
+    def add(self, reg1, v):
+        self._bytes += struct.pack("=BBB", Instructions.I_ADD, reg1, v)
+
+    def inc(self, reg1):
+        self.add(reg1, 1)
 
     def down_read(self, lock):
         self._bytes += struct.pack("=BB", Instructions.I_DOWN_READ, lock)
@@ -136,8 +133,7 @@ class BufioProgram:
     def forget_range(self, block, len):
         self._bytes += struct.pack("=BII", Instructions.I_FORGET_RANGE, block, len)
 
-    def loop(self, name, reg):
-        addr = self.label_to_addr(name)
+    def loop(self, addr, reg):
         self._bytes += struct.pack("=BHB", Instructions.I_LOOP, addr, reg)
 
     def stamp(self, buf_reg, pattern_reg):
@@ -148,6 +144,17 @@ class BufioProgram:
 
     def checkpoint(self, reg):
         self._bytes += struct.pack("=BB", Instructions.I_CHECKPOINT, reg)
+
+
+@contextmanager
+def loop(p, nr_times):
+    loop_counter = p.alloc_reg()
+    p.lit(nr_times, loop_counter)
+    addr = p.label()
+    try:
+        yield p
+    finally:
+        p.loop(addr, loop_counter)
 
 
 def exec_program(dev, program):
@@ -233,25 +240,20 @@ def t_create(fix):
 
 def t_empty_program(fix):
     with bufio_threads(fix.cfg["data_dev"]) as thread_set:
-        with thread_set.program() as p:
+        with thread_set.program():
             pass
 
 
 def do_new_buf(p, base):
     block = p.alloc_reg()
-    increment = p.alloc_reg()
-    loop_counter = p.alloc_reg()
     buf = p.alloc_reg()
 
     p.lit(base, block)
-    p.lit(1, increment)
-    p.lit(1024, loop_counter)
 
-    p.label("loop")
-    p.new_buf(block, buf)
-    p.put_buf(buf)
-    p.add(block, increment)
-    p.loop("loop", loop_counter)
+    with loop(p, 1024) as p:
+        p.new_buf(block, buf)
+        p.put_buf(buf)
+        p.inc(block)
 
 
 def t_new_buf(fix):
@@ -268,70 +270,58 @@ def t_stamper(fix):
     with bufio_threads(fix.cfg["data_dev"]) as thread_set:
         with thread_set.program() as p:
             block = p.alloc_reg()
-            increment = p.alloc_reg()
-            loop_counter = p.alloc_reg()
             buf = p.alloc_reg()
             pattern = p.alloc_reg()
 
             p.lit(0, block)
-            p.lit(1, increment)
-            p.lit(1024, loop_counter)
             p.lit(random.randint(0, 1024), pattern)
 
-            p.label("loop")
+            with loop(p, 1024) as p:
+                # stamp
+                p.new_buf(block, buf)
+                p.stamp(buf, pattern)
+                p.mark_dirty(buf)
+                p.put_buf(buf)
 
-            # stamp
-            p.new_buf(block, buf)
-            p.stamp(buf, pattern)
-            p.mark_dirty(buf)
-            p.put_buf(buf)
+                # write
+                p.write_sync()
+                p.forget(block)
 
-            # write
-            p.write_sync()
-            p.forget(block)
+                # re-read and verify
+                p.read_buf(block, buf)
+                p.verify(buf, pattern)
+                p.put_buf(buf)
 
-            # re-read and verify
-            p.read_buf(block, buf)
-            p.verify(buf, pattern)
-            p.put_buf(buf)
-
-            p.add(block, increment)
-            p.add(pattern, increment)
-            p.loop("loop", loop_counter)
+                p.inc(block)
+                p.inc(pattern)
 
 
 def do_stamper(p, base):
     block = p.alloc_reg()
-    increment = p.alloc_reg()
-    loop_counter = p.alloc_reg()
     buf = p.alloc_reg()
     pattern = p.alloc_reg()
 
     p.lit(base, block)
-    p.lit(1, increment)
-    p.lit(1024, loop_counter)
     p.lit(random.randint(0, 1024), pattern)
 
-    p.label("loop")
+    with loop(p, 1024) as p:
+        # stamp
+        p.new_buf(block, buf)
+        p.stamp(buf, pattern)
+        p.mark_dirty(buf)
+        p.put_buf(buf)
 
-    # stamp
-    p.new_buf(block, buf)
-    p.stamp(buf, pattern)
-    p.mark_dirty(buf)
-    p.put_buf(buf)
+        # write
+        p.write_sync()
+        p.forget(block)
 
-    # write
-    p.write_sync()
-    p.forget(block)
+        # re-read and verify
+        p.read_buf(block, buf)
+        p.verify(buf, pattern)
+        p.put_buf(buf)
 
-    # re-read and verify
-    p.read_buf(block, buf)
-    p.verify(buf, pattern)
-    p.put_buf(buf)
-
-    p.add(block, increment)
-    p.add(pattern, increment)
-    p.loop("loop", loop_counter)
+        p.inc(block)
+        p.inc(pattern)
 
 
 def t_many_stampers(fix):
@@ -352,30 +342,22 @@ def t_writeback_many(fix):
     with bufio_threads(data_dev) as thread_set:
         with thread_set.program() as p:
             block = p.alloc_reg()
-            increment = p.alloc_reg()
-            loop_counter = p.alloc_reg()
             buf = p.alloc_reg()
 
             p.lit(0, block)
-            p.lit(1, increment)
+            p.checkpoint(0)
 
-            p.lit(nr_blocks, loop_counter)
-            p.checkpoint(loop_counter)
+            # mark first 8G as dirty
+            with loop(p, nr_blocks) as p:
+                p.new_buf(block, buf)
+                p.mark_dirty(buf)
+                p.put_buf(buf)
+                p.inc(block)
 
-            p.label("loop")
-
-            p.new_buf(block, buf)
-            p.mark_dirty(buf)
-            p.put_buf(buf)
-
-            # loop
-            p.add(block, increment)
-            p.loop("loop", loop_counter)
-
-            # write
-            p.checkpoint(loop_counter)
+            # write back
+            p.checkpoint(1)
             p.write_sync()
-            p.checkpoint(loop_counter)
+            p.checkpoint(2)
 
 
 def register(tests):
