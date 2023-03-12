@@ -337,7 +337,7 @@ def t_many_stampers(fix):
 # Mainly here as a benchmark
 def t_writeback_many(fix):
     data_dev = fix.cfg["data_dev"]
-    nr_blocks = units.gig(8) // 8
+    nr_blocks = units.gig(8) // units.kilo(4)
 
     with bufio_threads(data_dev) as thread_set:
         with thread_set.program() as p:
@@ -360,6 +360,24 @@ def t_writeback_many(fix):
             p.checkpoint(2)
 
 
+def t_hotspots(fix):
+    nr_hotspots = 16
+    region_size = units.meg(64)
+    regions = [(n * region_size, (n + 1) * region_size) for n in range(0, nr_hotspots)]
+
+    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
+        for b, e in regions:
+            with thread_set.program() as p:
+                block = p.alloc_reg()
+                buf = p.alloc_reg()
+
+                p.lit(b, block)
+                with loop(p, e - b) as p:
+                    p.read_buf(block, buf)
+                    p.put_buf(buf)
+                    p.inc(block)
+
+
 def register(tests):
     tests.register("/bufio/create", t_create)
     tests.register("/bufio/empty-program", t_empty_program)
@@ -367,3 +385,4 @@ def register(tests):
     tests.register("/bufio/stamper", t_stamper)
     tests.register("/bufio/many-stampers", t_many_stampers)
     tests.register("/bufio/writeback-many", t_writeback_many)
+    tests.register("/bufio/hotspots", t_hotspots)
