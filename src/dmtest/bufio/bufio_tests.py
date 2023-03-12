@@ -1,6 +1,7 @@
 import dmtest.device_mapper.dev as dmdev
 import dmtest.device_mapper.table as table
 import dmtest.device_mapper.targets as targets
+import dmtest.units as units
 import dmtest.utils as utils
 import enum
 import logging as log
@@ -38,6 +39,7 @@ class Instructions(enum.IntEnum):
     I_LOOP = 23
     I_STAMP = 24
     I_VERIFY = 25
+    I_CHECKPOINT = 26
 
 
 class BufioProgram:
@@ -141,6 +143,9 @@ class BufioProgram:
 
     def verify(self, buf_reg, pattern_reg):
         self._bytes += struct.pack("=BBB", Instructions.I_VERIFY, buf_reg, pattern_reg)
+
+    def checkpoint(self, reg):
+        self._bytes += struct.pack("=BB", Instructions.I_CHECKPOINT, reg)
 
 
 class AutoProgram:
@@ -332,9 +337,45 @@ def t_many_stampers(fix):
             tid.join()
 
 
+# Mainly here as a benchmark
+def t_writeback_many(fix):
+    data_dev = fix.cfg["data_dev"]
+    nr_blocks = units.gig(8) // 8
+    stack = BufioStack(data_dev)
+    with stack.activate() as dev:
+        with program(dev) as p:
+            block = p.alloc_reg()
+            increment = p.alloc_reg()
+            loop_counter = p.alloc_reg()
+            buf = p.alloc_reg()
+
+            p.lit(0, block)
+            p.lit(1, increment)
+
+            p.lit(nr_blocks, loop_counter)
+            p.checkpoint(loop_counter)
+
+            p.label("loop")
+
+            p.new_buf(block, buf)
+            p.mark_dirty(buf)
+            p.put_buf(buf)
+
+            # loop
+            p.add(block, increment)
+            p.loop("loop", loop_counter)
+
+            # write
+            p.checkpoint(loop_counter)
+            p.write_sync()
+            p.checkpoint(loop_counter)
+            p.halt()
+
+
 def register(tests):
     tests.register("/bufio/create", t_create)
     tests.register("/bufio/empty-program", t_empty_program)
     tests.register("/bufio/new-buf", t_new_buf)
     tests.register("/bufio/stamper", t_stamper)
     tests.register("/bufio/many-stampers", t_many_stampers)
+    tests.register("/bufio/writeback-many", t_writeback_many)
