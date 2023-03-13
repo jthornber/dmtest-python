@@ -1,7 +1,7 @@
+from contextlib import contextmanager
+import dmtest.device_mapper.interface as dm
 import logging
 import random
-
-import dmtest.device_mapper.interface as dm
 
 
 class Dev:
@@ -45,20 +45,6 @@ class Dev:
     def resume(self):
         dm.resume(self._name)
 
-    def pause(self, callback):
-        try:
-            self.suspend()
-            callback()
-        finally:
-            self.resume()
-
-    def pause_noflush(self, callback):
-        try:
-            self.suspend_noflush()
-            callback()
-        finally:
-            self.resume()
-
     def remove(self):
         dm.remove(self._name)
 
@@ -83,6 +69,18 @@ class Dev:
     def event_nr(self):
         output = dm.status(self._name, "-v")
         dm.extract_event_nr(output)
+
+
+@contextmanager
+def pause(dev, noflush=False):
+    try:
+        if noflush:
+            dev.suspend_noflush()
+        else:
+            dev.suspend()
+        yield dev
+    finally:
+        dev.resume()
 
 
 def dev(table, read_only=False):

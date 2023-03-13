@@ -29,6 +29,15 @@ class TestRegister:
         path = _normalise_path(path)
         self._tests[path] = callback
 
+    def register_batch(self, prefix, pairs):
+        # ensure a trailing slash
+        prefix = str(prefix)
+        if not prefix.endswith("/"):
+            prefix += "/"
+
+        for path, callback in pairs:
+            self.register(prefix + path.lstrip("/"), callback)
+
     def paths(self, patterns=None):
         if patterns:
             pred = _build_predicate_regex(patterns)
