@@ -5,6 +5,7 @@ import dmtest.test_register as test_register
 import dmtest.thin.creation_tests as thin_creation
 import logging as log
 import os
+import time
 
 
 # -----------------------------------------
@@ -27,14 +28,18 @@ def cmd_run(tests, args):
 
         fix = dmtest.fixture.Fixture()
         passed = True
+        start = time.time()
         try:
             tests.run(p, fix)
+
         except Exception as e:
             passed = False
             log.error(f"Exception caught: {e}")
+            raise
+        elapsed = time.time() - start
 
         if passed:
-            print("PASS")
+            print(f"PASS [{elapsed:.2f}s]")
         else:
             print("FAIL")
             log.info(f"*** FAIL {p}")
