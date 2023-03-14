@@ -1,26 +1,34 @@
-import dmtest.device_mapper.targets as targets
-import dmtest.device_mapper.table as table
-import dmtest.utils as utils
-
 from collections import namedtuple
+from typing import List, Tuple, Optional, Dict, Callable
+
+import dmtest.device_mapper.table as table
+import dmtest.device_mapper.targets as targets
+import dmtest.utils as utils
 
 
 DevSegment = namedtuple("DevSegment", ["dev", "offset", "length"])
 
 
 class SegmentAllocationError(Exception):
-    pass
+    """Raised when there is not enough space for allocating segments."""
 
 
 class VolumeError(Exception):
-    pass
+    """Raised when there is an issue related to volume management."""
 
 
-def _allocate_segment(size, segs):
+def _allocate_segment(
+    size: int, segs: List[DevSegment]
+) -> Tuple[DevSegment, List[DevSegment]]:
     """
-    Allocates a single segment with length not greater than 'size'
-    Returns a tuple of the newly allocated segment and the remains
-    of the passed in segs.
+    Allocates a single segment with a length not greater than 'size'.
+
+    Args:
+        size (int): The maximum size of the segment to allocate.
+        segs (List[DevSegment]): A list of available DevSegments.
+
+    Returns:
+        Tuple[DevSegment, List[DevSegment]]: A tuple containing the newly allocated segment and the remaining segments.
     """
     if len(segs) == 0:
         raise SegmentAllocationError("Out of space in the segment allocator")
@@ -31,7 +39,7 @@ def _allocate_segment(size, segs):
     return (s, segs)
 
 
-def _merge(segs):
+def _merge(segs: List[DevSegment]) -> List[DevSegment]:
     segs.sort(key=lambda seg: (seg.dev, seg.offset))
 
     merged = []
@@ -53,9 +61,13 @@ def _merge(segs):
 
 class Allocator:
     def __init__(self):
-        self._free_segments = []
+        self._free_segments: List[DevSegment] = []
 
-    def allocate_segments(self, size, segment_predicate=None):
+    def allocate_segments(
+        self,
+        size: int,
+        segment_predicate: Optional[Callable[[DevSegment], bool]] = None,
+    ) -> List[DevSegment]:
         if segment_predicate:
             segments = [s for s in self._free_segments if segment_predicate(s)]
         else:
@@ -70,20 +82,20 @@ class Allocator:
         self._free_segments = segments
         return result
 
-    def release_segments(self, segs):
+    def release_segments(self, segs: List[DevSegment]):
         self._free_segments += segs
         self._free_segments = _merge(self._free_segments)
 
-    def free_space(self):
+    def free_space(self) -> int:
         return sum([seg.length for seg in self._free_segments])
 
 
 class Volume:
-    def __init__(self, name, length):
+    def __init__(self, name: str, length: int):
         self._name = name
         self._length = length
-        self._segments = []
-        self._targets = []
+        self._segments: List[DevSegment] = []
+        self._targets: List[targets.LinearTarget] = []
         self._allocated = False
 
     def resize(self, allocator, new_length):
@@ -98,7 +110,7 @@ def _segs_to_targets(segs):
 
 
 class LinearVolume(Volume):
-    def __init__(self, name, length):
+    def __init__(self, name: str, length: int):
         super().__init__(name, length)
 
     def resize(self, allocator, new_length):
@@ -126,47 +138,49 @@ class LinearVolume(Volume):
 class VM:
     def __init__(self):
         self._allocator = Allocator()
-        self._volumes = {}
+        self._volumes: Dict[str, Volume] = {}
 
-    def add_allocation_volume(self, dev, offset=0, length=None):
+    def add_allocation_volume(
+        self, dev: str, offset: int = 0, length: Optional[int] = None
+    ) -> None:
         if not length:
             length = utils.dev_size(dev)
 
         self._allocator.release_segments([DevSegment(dev, offset, length)])
 
-    def free_space(self):
+    def free_space(self) -> int:
         return self._allocator.free_space()
 
-    def add_volume(self, vol):
+    def add_volume(self, vol: Volume) -> None:
         self._check_not_exist(vol._name)
         vol.allocate(self._allocator)
         self._volumes[vol._name] = vol
 
-    def remove_volume(self, name):
+    def remove_volume(self, name: str) -> None:
         self._check_exists(name)
         vol = self._volumes[name]
         self._allocator.release_segments(vol._segments)
         del self._volumes[name]
 
-    def resize(self, name, new_size):
+    def resize(self, name: str, new_size: int) -> None:
         self._check_exists(name)
         self._volumes[name].resize(self._allocator, new_size)
 
-    def segments(self, name):
+    def segments(self, name: str) -> List[DevSegment]:
         self._check_exists(name)
         return self._volumes[name]._segments
 
-    def targets(self, name):
+    def targets(self, name: str) -> List[targets.LinearTarget]:
         self._check_exists(name)
         return self._volumes[name]._targets
 
-    def table(self, name):
+    def table(self, name: str) -> table.Table:
         return table.Table(*self.targets(name))
 
-    def _check_not_exist(self, name):
+    def _check_not_exist(self, name: str) -> None:
         if name in self._volumes:
             raise VolumeError(f"Volume '{name}' already exists")
 
-    def _check_exists(self, name):
+    def _check_exists(self, name: str) -> None:
         if name not in self._volumes:
             raise VolumeError(f"Volume '{name}' doesn't exist")
