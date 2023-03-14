@@ -1,7 +1,8 @@
 from contextlib import contextmanager
-import dmtest.device_mapper.interface as dm
 import logging
 import random
+
+import dmtest.device_mapper.interface as dm
 
 
 class Dev:
@@ -79,6 +80,21 @@ def pause(dev, noflush=False):
 
 @contextmanager
 def dev(table, read_only=False):
+    """
+    A context manager for creating, using, and automatically cleaning up a device-mapper device.
+
+    This context manager creates a device-mapper device with the specified table and
+    read-only status, activates it, and yields the device. Once the context is exited,
+    it automatically removes the device.
+
+    Args:
+        table (str): The device-mapper table string to be used for creating the device.
+        read_only (bool, optional): If True, the device will be loaded with read-only status.
+                                     Defaults to False.
+
+    Yields:
+        Dev: The created and activated device-mapper device instance.
+    """
     name = f"test-dev-{random.randint(0, 1000000)}"
 
     dev = Dev(name)
@@ -93,45 +109,47 @@ def dev(table, read_only=False):
         dev.remove()
 
 
-# def dev(table, read_only=False):
-# try:
-# dev = Dev(lambda: _anon_dev(table, read_only), 1)
-# try:
-# yield dev
-# finally:
-# dev.remove()
-# dev.post_remove_check()
-# except Exception as e:
-## Dev constructor failed, nothing we can do apart from log it
-# logging.error(f"Failed to create device: {e}")
-# pass
+class DeviceCleanupError(Exception):
+    def __init__(self, errors):
+        super().__init__("Errors occurred during device cleanup")
+        self.errors = errors
 
 
+@contextmanager
 def devs(*tables):
     """
     Creates one or more anonymous device-mapper devices and yields a tuple of
     the created devices.
-
     Args:
         tables (tuple): A tuple of table strings, one for each device to
                         create.
-
     Yields:
         tuple: A tuple of the created device-mapper devices.
-
     Raises:
         Exception: If any device-mapper devices fail to create.
-
+        DeviceCleanupError: If any device-mapper devices fail to remove.
     """
+    dev_instances = []
+
     try:
-        devs = [Dev(lambda: _anon_dev(table), 1) for table in tables]
-        try:
-            yield tuple(devs)
-        finally:
-            for dev in devs:
-                dev.remove()
-                dev.post_remove_check()
-    except Exception as e:
-        # Dev constructor failed, nothing we can do apart from log it
-        logging.error(f"Failed to create device: {e}")
-        pass
+        # Create devices
+        for table in tables:
+            dev_instance = Dev(table)
+            dev_instance.load(table)
+            dev_instance.resume()
+            dev_instances.append(dev_instance)
+
+        yield tuple(dev_instances)
+
+    finally:
+        # Remove devices and handle exceptions
+        cleanup_errors = []
+
+        for dev_instance in dev_instances:
+            try:
+                dev_instance.remove()
+            except Exception as e:
+                cleanup_errors.append(e)
+
+        if cleanup_errors:
+            raise DeviceCleanupError(cleanup_errors)
