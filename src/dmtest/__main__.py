@@ -34,8 +34,11 @@ class TreeFormatter:
 
 
 def cmd_list(tests, args):
-    for p in tests.paths(args.rx):
-        print(f"    {p}")
+    paths = sorted(tests.paths(args.rx))
+    formatter = TreeFormatter()
+
+    for p in paths:
+        print(f"{formatter.tree_line(p)}")
 
 
 # -----------------------------------------
