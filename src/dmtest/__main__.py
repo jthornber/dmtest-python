@@ -3,9 +3,30 @@ import dmtest.bufio.bufio_tests as bufio
 import dmtest.fixture
 import dmtest.test_register as test_register
 import dmtest.thin.creation_tests as thin_creation
+import itertools
 import logging as log
 import os
 import time
+
+
+class TreeFormatter:
+    def __init__(self):
+        self._previous = []
+        self._indent = "  "
+
+    def tree_line(self, path):
+        components = [c for c in path.split("/") if c.strip()]
+        strs = []
+        depth = 0
+        for old, new in itertools.zip_longest(
+            self._previous, components, fillvalue=None
+        ):
+            if old != new:
+                strs.append(self._indent * depth)
+                strs.append(new.ljust(60, " ") + "\n")
+            depth += 1
+        self._previous = components
+        return "".join(strs)[:-1]
 
 
 # -----------------------------------------
@@ -22,8 +43,12 @@ def cmd_list(tests, args):
 
 
 def cmd_run(tests, args):
-    for p in tests.paths(args.rx):
-        print(f"{p} ... ", end="", flush=True)
+    # select tests
+    paths = sorted(tests.paths(args.rx))
+    formatter = TreeFormatter()
+
+    for p in paths:
+        print(f"{formatter.tree_line(p)}", end="", flush=True)
         log.info(f"Running '{p}'")
 
         fix = dmtest.fixture.Fixture()
