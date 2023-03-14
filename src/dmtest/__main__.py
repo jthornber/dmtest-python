@@ -1,6 +1,7 @@
 import argparse
 import dmtest.bufio.bufio_tests as bufio
 import dmtest.fixture
+import dmtest.process as process
 import dmtest.test_register as test_register
 import dmtest.thin.creation_tests as thin_creation
 import itertools
@@ -74,6 +75,24 @@ def cmd_run(tests, args):
 
 
 # -----------------------------------------
+# 'health' command
+
+
+def which(executable):
+    (return_code, stdout, stderr) = process.run(f"which {executable}")
+    if return_code == 0:
+        return stdout
+    else:
+        return "-"
+
+
+def cmd_health(tests, args):
+    tools = ["dd", "blktrace", "blockdev", "dmsetup", "thin_check"]
+    for t in tools:
+        print(f"{(t + ' ').ljust(40, '.')} {which(t)}")
+
+
+# -----------------------------------------
 # Command line parser
 
 
@@ -100,6 +119,11 @@ def command_line_parser():
     run_p = subparsers.add_parser("run", help="run tests")
     add_filter(run_p)
     run_p.set_defaults(func=cmd_run)
+
+    health_p = subparsers.add_parser(
+        "health", help="check required tools are installed"
+    )
+    health_p.set_defaults(func=cmd_health)
 
     return parser
 
