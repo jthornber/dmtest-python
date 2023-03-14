@@ -20,6 +20,9 @@ class Dev:
         # self.post_remove_check()
         return None
 
+    def __str__(self):
+        return self._path
+
     @property
     def name(self):
         return self._name
@@ -110,7 +113,7 @@ def dev(table, read_only=False):
 # pass
 
 
-def devs(tables):
+def devs(*tables):
     """
     Creates one or more anonymous device-mapper devices and yields a tuple of
     the created devices.

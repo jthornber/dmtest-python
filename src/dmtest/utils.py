@@ -115,10 +115,15 @@ def _dd_device(ifile, ofile, oflag, sectors):
         )
 
 
+# A device could either be a str or a dmdev
+def _to_path(dev):
+    return str(dev)
+
+
 def wipe_device(dev, sectors=None):
-    _dd_device("/dev/zero", dev, "oflag=direct", sectors)
+    _dd_device("/dev/zero", _to_path(dev), "oflag=direct", sectors)
 
 
 def dev_size(dev):
-    (_, stdout, _) = process.run(f"blockdev --getsz {dev}")
+    (_, stdout, _) = process.run(f"blockdev --getsz {_to_path(dev)}")
     return int(stdout)

@@ -45,7 +45,7 @@ class PoolStack:
 
 
 def _thin_table(pool, size, id, origin=None):
-    return table.Table(targets.ThinTarget(pool, size, id, origin))
+    return table.Table(targets.ThinTarget(size, pool.path, id, origin))
 
 
 def thin(pool, size, id, origin=None):

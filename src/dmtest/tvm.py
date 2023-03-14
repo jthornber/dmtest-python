@@ -1,10 +1,11 @@
-import device_mapper.targets as targets
-import device_mapper.table as table
+import dmtest.device_mapper.targets as targets
+import dmtest.device_mapper.table as table
+import dmtest.utils as utils
 
 from collections import namedtuple
 
 
-DevSegment = namedtuple("DevSegment", ['dev', 'offset', 'length'])
+DevSegment = namedtuple("DevSegment", ["dev", "offset", "length"])
 
 
 class SegmentAllocationError(Exception):
@@ -21,9 +22,8 @@ def _allocate_segment(size, segs):
     Returns a tuple of the newly allocated segment and the remains
     of the passed in segs.
     """
-    if segs.len() == 0:
-        raise SegmentAllocationError(
-            "Out of space in the segment allocator")
+    if len(segs) == 0:
+        raise SegmentAllocationError("Out of space in the segment allocator")
     s = segs.pop(0)
     if s.length > size:
         segs.insert(0, DevSegment(s.dev, s.offset + size, s.length - size))
@@ -128,21 +128,24 @@ class VM:
         self._allocator = Allocator()
         self._volumes = {}
 
-    def add_allocation_volume(self, dev, offset, length):
+    def add_allocation_volume(self, dev, offset=0, length=None):
+        if not length:
+            length = utils.dev_size(dev)
+
         self._allocator.release_segments([DevSegment(dev, offset, length)])
 
     def free_space(self):
         return self._allocator.free_space()
 
     def add_volume(self, vol):
-        self.check_not_exist(vol.name)
+        self._check_not_exist(vol._name)
         vol.allocate(self._allocator)
-        self._volumes[vol.name] = vol
+        self._volumes[vol._name] = vol
 
     def remove_volume(self, name):
         self._check_exists(name)
         vol = self._volumes[name]
-        self._allocator.release_segments(vol.segments)
+        self._allocator.release_segments(vol._segments)
         del self._volumes[name]
 
     def resize(self, name, new_size):
@@ -151,14 +154,14 @@ class VM:
 
     def segments(self, name):
         self._check_exists(name)
-        return self._volumes[name].segments
+        return self._volumes[name]._segments
 
     def targets(self, name):
         self._check_exists(name)
-        return self._volumes[name].targets
+        return self._volumes[name]._targets
 
     def table(self, name):
-        return table.Table(self.targets(name))
+        return table.Table(*self.targets(name))
 
     def _check_not_exist(self, name):
         if name in self._volumes:
