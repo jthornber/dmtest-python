@@ -11,17 +11,6 @@ class Dev:
         self._active_table = None
         dm.create(self._name)
 
-    """
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, tb):
-        self.remove()
-        # FIXME: put back in
-        # self.post_remove_check()
-        return None
-    """
-
     def __str__(self):
         return self._path
 
