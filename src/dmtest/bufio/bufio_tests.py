@@ -95,7 +95,7 @@ class BufioProgram:
         self._bytes += struct.pack("=BB", Instructions.I_DOWN_WRITE, lock)
 
     def up_write(self, lock):
-        self._bytes += struct.pack("=BB", Instructions.I_UP_READ, lock)
+        self._bytes += struct.pack("=BB", Instructions.I_UP_WRITE, lock)
 
     def init_barrier(self):
         pass
