@@ -4,6 +4,7 @@ import dmtest.fixture
 import dmtest.process as process
 import dmtest.test_register as test_register
 import dmtest.thin.creation_tests as thin_creation
+import dmtest.thin.deletion_tests as thin_deletion
 import itertools
 import logging as log
 import os
@@ -24,7 +25,7 @@ class TreeFormatter:
         ):
             if old != new:
                 strs.append(self._indent * depth)
-                strs.append(new.ljust(60, " ") + "\n")
+                strs.append(new.ljust(50, " ") + "\n")
             depth += 1
         self._previous = components
         return "".join(strs)[:-1]
@@ -150,6 +151,7 @@ def main():
 
     tests = test_register.TestRegister()
     thin_creation.register(tests)
+    thin_deletion.register(tests)
     bufio.register(tests)
 
     args.func(tests, args)

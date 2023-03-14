@@ -43,6 +43,10 @@ class PoolStack:
     def activate(self):
         return dmdev.dev(self._pool_table())
 
+    @property
+    def block_size(self):
+        return self._block_size
+
 
 def _thin_table(pool, size, id, origin=None):
     return table.Table(targets.ThinTarget(size, pool.path, id, origin))

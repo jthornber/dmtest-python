@@ -58,15 +58,15 @@ class Dev:
 
     def status(self, noflush=False):
         if noflush:
-            dm.status(self._name, "--noflush")
+            return dm.status(self._name, "--noflush")
         else:
-            dm.status(self._name)
+            return dm.status(self._name)
 
     def table(self):
-        dm.table(self._name)
+        return dm.table(self._name)
 
     def info(self):
-        dm.info(self._name)
+        return dm.info(self._name)
 
     def wait(self, event_nr):
         dm.wait(self._name, event_nr)

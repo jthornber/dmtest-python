@@ -50,7 +50,8 @@ def message(name, sector, *args):
 
 
 def status(name, *args):
-    run(f"dmsetup status {' '.join(args)} {name}")
+    (_, stdout, _) = run(f"dmsetup status {' '.join(args)} {name}")
+    return stdout
 
 
 def table(name):

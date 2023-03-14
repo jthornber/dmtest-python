@@ -1,23 +1,10 @@
-from contextlib import contextmanager
+from dmtest.assertions import assert_raises
+from dmtest.thin.utils import standard_stack, standard_pool
 import dmtest.device_mapper.dev as dmdev
 import dmtest.pool_stack as ps
-import dmtest.test_register
-import dmtest.utils as utils
-import dmtest.units as units
-import logging as log
 import dmtest.tvm as tvm
-
-
-def standard_stack(fix, **opts):
-    cfg = fix.cfg
-    if "data_size" not in opts:
-        opts["data_size"] = utils.dev_size(cfg["data_dev"])
-    return ps.PoolStack(cfg["data_dev"], cfg["metadata_dev"], **opts)
-
-
-def standard_pool(fix, **opts):
-    stack = standard_stack(fix, **opts)
-    return stack.activate()
+import dmtest.units as units
+import dmtest.utils as utils
 
 
 def t_create_lots_of_empty_thins(fix):
@@ -28,14 +15,14 @@ def t_create_lots_of_empty_thins(fix):
 
 def t_create_lots_of_empty_snaps(fix):
     with standard_pool(fix) as pool:
-        pool.message(0, f"create_thin 0")
+        pool.message(0, "create_thin 0")
         for id in range(1, 1000):
             pool.message(0, f"create_snap {id} 0")
 
 
 def t_create_lots_of_recursive_snaps(fix):
     with standard_pool(fix) as pool:
-        pool.message(0, f"create_thin 0")
+        pool.message(0, "create_thin 0")
         for id in range(1, 1000):
             pool.message(0, f"create_snap {id} {id - 1}")
 
@@ -111,16 +98,6 @@ def t_largest_thin_id_succeeds(fix):
     with standard_pool(fix) as pool:
         with ps.new_thin(pool, units.gig(4), 2**24 - 1):
             pass
-
-
-def assert_raises(callback):
-    failed = False
-    try:
-        callback()
-    except Exception:
-        failed = True
-
-    assert failed
 
 
 def t_too_small_a_metadata_dev_fails(fix):
