@@ -9,7 +9,7 @@
 - Edit config.toml for your system
 - Check for tool requirements by running:
 
-> ./dmtest --health
+> ./dmtest health
 
 
 # Running
