@@ -11,6 +11,7 @@ class Dev:
         self._active_table = None
         dm.create(self._name)
 
+    """
     def __enter__(self):
         return self
 
@@ -19,6 +20,7 @@ class Dev:
         # FIXME: put back in
         # self.post_remove_check()
         return None
+    """
 
     def __str__(self):
         return self._path
@@ -86,17 +88,20 @@ def pause(dev, noflush=False):
         dev.resume()
 
 
+@contextmanager
 def dev(table, read_only=False):
-    def _create_name():
-        return f"test-dev-{random.randint(0, 1000000)}"
+    name = f"test-dev-{random.randint(0, 1000000)}"
 
-    dev = Dev(_create_name())
-    if read_only:
-        dev.load_ro(table)
-    else:
-        dev.load(table)
-    dev.resume()
-    return dev
+    dev = Dev(name)
+    try:
+        if read_only:
+            dev.load_ro(table)
+        else:
+            dev.load(table)
+        dev.resume()
+        yield dev
+    finally:
+        dev.remove()
 
 
 # def dev(table, read_only=False):
