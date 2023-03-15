@@ -6,7 +6,7 @@ import dmtest.device_mapper.targets as targets
 import dmtest.utils as utils
 
 
-DevSegment = namedtuple("DevSegment", ["dev", "offset", "length"])
+Segment = namedtuple("Segment", ["dev", "offset", "length"])
 
 
 class SegmentAllocationError(Exception):
@@ -17,29 +17,27 @@ class VolumeError(Exception):
     """Raised when there is an issue related to volume management."""
 
 
-def _allocate_segment(
-    size: int, segs: List[DevSegment]
-) -> Tuple[DevSegment, List[DevSegment]]:
+def _allocate_segment(size: int, segs: List[Segment]) -> Tuple[Segment, List[Segment]]:
     """
     Allocates a single segment with a length not greater than 'size'.
 
     Args:
         size (int): The maximum size of the segment to allocate.
-        segs (List[DevSegment]): A list of available DevSegments.
+        segs (List[Segment]): A list of available Segments.
 
     Returns:
-        Tuple[DevSegment, List[DevSegment]]: A tuple containing the newly allocated segment and the remaining segments.
+        Tuple[Segment, List[Segment]]: A tuple containing the newly allocated segment and the remaining segments.
     """
     if len(segs) == 0:
         raise SegmentAllocationError("Out of space in the segment allocator")
     s = segs.pop(0)
     if s.length > size:
-        segs.insert(0, DevSegment(s.dev, s.offset + size, s.length - size))
-        s = DevSegment(s.dev, s.offset, size)
+        segs.insert(0, Segment(s.dev, s.offset + size, s.length - size))
+        s = Segment(s.dev, s.offset, size)
     return (s, segs)
 
 
-def _merge(segs: List[DevSegment]) -> List[DevSegment]:
+def _merge(segs: List[Segment]) -> List[Segment]:
     segs.sort(key=lambda seg: (seg.dev, seg.offset))
 
     merged = []
@@ -48,7 +46,7 @@ def _merge(segs: List[DevSegment]) -> List[DevSegment]:
         n = segs.pop(0)
         if (n.dev == s.dev) and (n.offset == (s.offset + s.length)):
             # adjacent, we can merge them
-            s = DevSegment(s.dev, s.offset, s.length + n.length)
+            s = Segment(s.dev, s.offset, s.length + n.length)
         else:
             # non-adjacent, push what we've got
             merged.append(s)
@@ -61,13 +59,13 @@ def _merge(segs: List[DevSegment]) -> List[DevSegment]:
 
 class Allocator:
     def __init__(self):
-        self._free_segments: List[DevSegment] = []
+        self._free_segments: List[Segment] = []
 
     def allocate_segments(
         self,
         size: int,
-        segment_predicate: Optional[Callable[[DevSegment], bool]] = None,
-    ) -> List[DevSegment]:
+        segment_predicate: Optional[Callable[[Segment], bool]] = None,
+    ) -> List[Segment]:
         if segment_predicate:
             segments = [s for s in self._free_segments if segment_predicate(s)]
         else:
@@ -82,7 +80,7 @@ class Allocator:
         self._free_segments = segments
         return result
 
-    def release_segments(self, segs: List[DevSegment]):
+    def release_segments(self, segs: List[Segment]):
         self._free_segments += segs
         self._free_segments = _merge(self._free_segments)
 
@@ -94,7 +92,7 @@ class Volume:
     def __init__(self, name: str, length: int):
         self._name = name
         self._length = length
-        self._segments: List[DevSegment] = []
+        self._segments: List[Segment] = []
         self._targets: List[targets.LinearTarget] = []
         self._allocated = False
 
@@ -146,7 +144,7 @@ class VM:
         if not length:
             length = utils.dev_size(dev)
 
-        self._allocator.release_segments([DevSegment(dev, offset, length)])
+        self._allocator.release_segments([Segment(dev, offset, length)])
 
     def free_space(self) -> int:
         return self._allocator.free_space()
@@ -166,7 +164,7 @@ class VM:
         self._check_exists(name)
         self._volumes[name].resize(self._allocator, new_size)
 
-    def segments(self, name: str) -> List[DevSegment]:
+    def segments(self, name: str) -> List[Segment]:
         self._check_exists(name)
         return self._volumes[name]._segments
 
