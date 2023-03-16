@@ -4,6 +4,7 @@ import logging as log
 import os
 import tempfile
 import time
+from contextlib import contextmanager
 
 
 class TempFile:
@@ -127,3 +128,14 @@ def wipe_device(dev, sectors=None):
 def dev_size(dev):
     (_, stdout, _) = process.run(f"blockdev --getsz {_to_path(dev)}")
     return int(stdout)
+
+
+@contextmanager
+def timed(desc: str):
+    start_time = time.time()
+    try:
+        yield
+    finally:
+        end_time = time.time()
+        duration = end_time - start_time
+        log.info(f"{desc} took {duration:.4f} seconds")
