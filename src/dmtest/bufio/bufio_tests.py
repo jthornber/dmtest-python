@@ -10,6 +10,7 @@ import os
 import random
 import struct
 import threading
+import time
 
 from contextlib import contextmanager
 
@@ -168,7 +169,8 @@ def exec_program(dev, program):
         page_size = os.sysconf("SC_PAGE_SIZE")
         with mmap.mmap(-1, page_size) as mem:
             mem.write(bytes)
-            os.write(fd, mem)
+            with utils.timed("bufio program"):
+                os.write(fd, mem)
     finally:
         os.close(fd)
 
@@ -225,16 +227,69 @@ class ThreadSet:
 def bufio_threads(data_dev):
     data_size = utils.dev_size(data_dev)
     t = table.Table(targets.BufioTestTarget(data_size, data_dev))
-    with dmdev.dev(t) as dev:
-        with ThreadSet(dev) as thread_set:
-            yield thread_set
+    with bufio_params_tracker():
+        with dmdev.dev(t) as dev:
+            with ThreadSet(dev) as thread_set:
+                yield thread_set
+
+
+def _sys_param(name: str) -> str:
+    return f"/sys/module/dm_bufio/parameters/{name}"
+
+
+def read_sys_param(name: str) -> int:
+    with open(_sys_param(name), "r") as file:
+        return int(file.read().strip())
+
+
+def write_sys_param(name: str, value: str):
+    with open(_sys_param(name), "w") as file:
+        return file.write(value)
+
+
+class BufioParams:
+    @property
+    def peak_allocated(self):
+        return read_sys_param("peak_allocated_bytes")
+
+    @property
+    def current_allocated(self):
+        return read_sys_param("current_allocated_bytes")
+
+    @property
+    def max_cache_size(self):
+        return read_sys_param("max_cache_size_bytes")
+
+    @max_cache_size.setter
+    def max_cache_size(self, value):
+        return write_sys_param("max_cache_size_bytes", str(value))
+
+
+@contextmanager
+def bufio_params_tracker():
+    def worker(stop_event):
+        p = BufioParams()
+        while not stop_event.is_set():
+            log.info(
+                f"bufio cache size: {p.current_allocated // (1024 * 1024)}m/{p.max_cache_size // (1024 * 1024)}m"
+            )
+            time.sleep(0.5)
+
+    stop_event = threading.Event()
+    tid = threading.Thread(target=worker, args=(stop_event,))
+    try:
+        tid.start()
+        yield
+    finally:
+        stop_event.set()
+        tid.join()
 
 
 # -----------------------------------------------
 
 
 def t_create(fix):
-    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
+    with bufio_threads(fix.cfg["data_dev"]):
         pass
 
 
@@ -334,7 +389,30 @@ def t_many_stampers(fix):
                 do_stamper(p, t * nr_gets)
 
 
-# Mainly here as a benchmark
+def t_writeback_nothing(fix):
+    data_dev = fix.cfg["data_dev"]
+    nr_blocks = units.meg(512) // units.kilo(4)
+
+    with bufio_threads(data_dev) as thread_set:
+        with thread_set.program() as p:
+            block = p.alloc_reg()
+            buf = p.alloc_reg()
+
+            p.lit(0, block)
+            p.checkpoint(0)
+
+            # read data, but don't dirty it
+            with loop(p, nr_blocks) as p:
+                p.read_buf(block, buf)
+                p.put_buf(buf)
+                p.inc(block)
+
+            # write back, should do nothing
+            p.checkpoint(1)
+            p.write_sync()
+            p.checkpoint(2)
+
+
 def t_writeback_many(fix):
     data_dev = fix.cfg["data_dev"]
     nr_blocks = units.gig(8) // units.kilo(4)
@@ -362,7 +440,9 @@ def t_writeback_many(fix):
 
 def t_hotspots(fix):
     nr_hotspots = 16
-    region_size = units.meg(64)
+
+    # size in 4k blocks
+    region_size = units.meg(4) // units.kilo(4)
     regions = [(n * region_size, (n + 1) * region_size) for n in range(0, nr_hotspots)]
 
     with bufio_threads(fix.cfg["data_dev"]) as thread_set:
@@ -371,11 +451,12 @@ def t_hotspots(fix):
                 block = p.alloc_reg()
                 buf = p.alloc_reg()
 
-                p.lit(b, block)
-                with loop(p, e - b) as p:
-                    p.read_buf(block, buf)
-                    p.put_buf(buf)
-                    p.inc(block)
+                with loop(p, 16) as p:
+                    p.lit(b, block)
+                    with loop(p, e - b) as p:
+                        p.read_buf(block, buf)
+                        p.put_buf(buf)
+                        p.inc(block)
 
 
 def register(tests):
@@ -384,5 +465,6 @@ def register(tests):
     tests.register("/bufio/new-buf", t_new_buf)
     tests.register("/bufio/stamper", t_stamper)
     tests.register("/bufio/many-stampers", t_many_stampers)
+    tests.register("/bufio/writeback-nothing", t_writeback_nothing)
     tests.register("/bufio/writeback-many", t_writeback_many)
     tests.register("/bufio/hotspots", t_hotspots)
