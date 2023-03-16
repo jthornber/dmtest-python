@@ -445,18 +445,32 @@ def t_hotspots(fix):
     region_size = units.meg(4) // units.kilo(4)
     regions = [(n * region_size, (n + 1) * region_size) for n in range(0, nr_hotspots)]
 
+    big_region_size = units.gig(1) // units.kilo(4)
+
     with bufio_threads(fix.cfg["data_dev"]) as thread_set:
+        # hotspot programs
         for b, e in regions:
             with thread_set.program() as p:
                 block = p.alloc_reg()
                 buf = p.alloc_reg()
 
-                with loop(p, 16) as p:
+                with loop(p, 512) as p:
                     p.lit(b, block)
                     with loop(p, e - b) as p:
                         p.read_buf(block, buf)
                         p.put_buf(buf)
                         p.inc(block)
+
+        # a background writer
+        with thread_set.program() as p:
+            block = p.alloc_reg()
+            buf = p.alloc_reg()
+            p.lit(0, block)
+            with loop(p, big_region_size) as p:
+                p.read_buf(block, buf)
+                p.mark_dirty(buf)
+                p.put_buf(buf)
+                p.inc(block)
 
 
 def register(tests):
