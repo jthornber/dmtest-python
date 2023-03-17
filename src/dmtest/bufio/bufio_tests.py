@@ -220,17 +220,26 @@ class BufioParams:
 
 
 @contextmanager
-def bufio_params_tracker():
-    def worker(stop_event):
-        p = BufioParams()
+def bufio_params_tracker(cache_size=None):
+    def worker(p, stop_event):
         while not stop_event.is_set():
             log.info(
                 f"bufio cache size: {p.current_allocated // (1024 * 1024)}m/{p.max_cache_size // (1024 * 1024)}m"
             )
             time.sleep(0.5)
 
+    p = BufioParams()
+    if cache_size:
+        p.max_cache_size = cache_size * 512
+
     stop_event = threading.Event()
-    tid = threading.Thread(target=worker, args=(stop_event,))
+    tid = threading.Thread(
+        target=worker,
+        args=(
+            p,
+            stop_event,
+        ),
+    )
     try:
         tid.start()
         yield
@@ -238,13 +247,21 @@ def bufio_params_tracker():
         stop_event.set()
         tid.join()
 
+        # check max_cache_size was observed (roughly).
+        if p.peak_allocated > int(p.max_cache_size * 1.5):
+            raise ValueError(
+                "bufio max cache size exceeded: max = {p.max_cache_size // (1024 * 1024)}m, peak = {p.peak_allocated // (1024 * 1024)}m"
+            )
 
-# Activate bufio test device and create a thread set
+
+# Activate bufio test device and create a thread set.  max_cache_size is given
+# in sectors
 @contextmanager
-def bufio_tester(data_dev):
+def bufio_tester(data_dev, cache_size=None):
     data_size = utils.dev_size(data_dev)
     t = table.Table(targets.BufioTestTarget(data_size, data_dev))
-    with bufio_params_tracker():
+
+    with bufio_params_tracker(cache_size):
         with dmdev.dev(t) as dev:
             with ThreadSet(dev) as thread_set:
                 yield thread_set
