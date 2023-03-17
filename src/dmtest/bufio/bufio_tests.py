@@ -99,8 +99,8 @@ class BufioProgram:
     def forget_range(self, block, len):
         self._bytes += struct.pack("=BII", Instructions.I_FORGET_RANGE, block, len)
 
-    def loop(self, addr, reg):
-        self._bytes += struct.pack("=BHB", Instructions.I_LOOP, addr, reg)
+    def loop(self, addr, count):
+        self._bytes += struct.pack("=BHB", Instructions.I_LOOP, addr, count)
 
     def stamp(self, buf_reg, pattern_reg):
         self._bytes += struct.pack("=BBB", Instructions.I_STAMP, buf_reg, pattern_reg)
@@ -115,7 +115,7 @@ class BufioProgram:
 @contextmanager
 def loop(p, nr_times):
     loop_counter = p.alloc_reg()
-    p.lit(nr_times, loop_counter)
+    p.lit(nr_times - 1, loop_counter)
     addr = p.label()
     try:
         yield p
@@ -247,11 +247,15 @@ def bufio_params_tracker(cache_size=None):
         stop_event.set()
         tid.join()
 
+        """
+        # FIXME: this wont work unless we can reset the peak
+        # before each test.
         # check max_cache_size was observed (roughly).
         if p.peak_allocated > int(p.max_cache_size * 1.5):
             raise ValueError(
                 "bufio max cache size exceeded: max = {p.max_cache_size // (1024 * 1024)}m, peak = {p.peak_allocated // (1024 * 1024)}m"
             )
+        """
 
 
 # Activate bufio test device and create a thread set.  max_cache_size is given
@@ -467,24 +471,28 @@ def run_cache(fix, table, nr_blocks):
                     p.mark_dirty(buf)
                     p.put_buf(buf)
                     p.inc(block)
+                p.write_sync()
 
 
 def t_multiple_caches(fix):
+    def volume_name(index):
+        return f"data{index}"
+
     nr_caches = 4
-    volume_size = units.gig(4)
+    volume_size = units.gig(1)
     nr_blocks = volume_size // units.kilo(4)
 
     vm = tvm.VM()
     vm.add_allocation_volume(fix.cfg["data_dev"])
 
     for i in range(nr_caches):
-        vm.add_volume(tvm.LinearVolume(f"data{i}", volume_size))
+        vm.add_volume(tvm.LinearVolume(volume_name(i), volume_size))
 
     threads = []
 
     for _ in range(nr_caches):
         tid = threading.Thread(
-            target=run_cache, args=(fix, vm.table(f"data{i}"), nr_blocks)
+            target=run_cache, args=(fix, vm.table(volume_name(i)), nr_blocks)
         )
         threads.append(tid)
 
@@ -504,6 +512,4 @@ def register(tests):
     tests.register("/bufio/writeback-nothing", t_writeback_nothing)
     tests.register("/bufio/writeback-many", t_writeback_many)
     tests.register("/bufio/hotspots", t_hotspots)
-
-
-#    tests.register("/bufio/many-caches", t_multiple_caches)
+    tests.register("/bufio/many-caches", t_multiple_caches)
