@@ -16,33 +16,24 @@ from contextlib import contextmanager
 
 
 class Instructions(enum.IntEnum):
-    I_JMP = 0
-    I_BNZ = 1
-    I_BZ = 2
-    I_HALT = 3
-    I_LIT = 4
-    I_SUB = 5
-    I_ADD = 6
-    I_DOWN_READ = 7
-    I_UP_READ = 8
-    I_DOWN_WRITE = 9
-    I_UP_WRITE = 10
-    I_INIT_BARRIER = 11
-    I_WAIT_BARRIER = 12
-    I_NEW_BUF = 13
-    I_READ_BUF = 14
-    I_GET_BUF = 15
-    I_PUT_BUF = 16
-    I_MARK_DIRTY = 17
-    I_WRITE_ASYNC = 18
-    I_WRITE_SYNC = 19
-    I_FLUSH = 20
-    I_FORGET = 21
-    I_FORGET_RANGE = 22
-    I_LOOP = 23
-    I_STAMP = 24
-    I_VERIFY = 25
-    I_CHECKPOINT = 26
+    I_HALT = 0
+    I_LIT = 1
+    I_SUB = 2
+    I_ADD = 3
+    I_NEW_BUF = 4
+    I_READ_BUF = 5
+    I_GET_BUF = 6
+    I_PUT_BUF = 7
+    I_MARK_DIRTY = 8
+    I_WRITE_ASYNC = 9
+    I_WRITE_SYNC = 10
+    I_FLUSH = 11
+    I_FORGET = 12
+    I_FORGET_RANGE = 13
+    I_LOOP = 14
+    I_STAMP = 15
+    I_VERIFY = 16
+    I_CHECKPOINT = 17
 
 
 class BufioProgram:
@@ -62,15 +53,6 @@ class BufioProgram:
     def label(self):
         return len(self._bytes)
 
-    def jmp(self, addr):
-        self._bytes += struct.pack("=BH", Instructions.I_JMP, addr)
-
-    def bnz(self, addr, reg):
-        self._bytes += struct.pack("=BHB", Instructions.I_BNZ, addr, reg)
-
-    def bz(self, addr, reg):
-        self._bytes += struct.pack("=BHB", Instructions.I_BZ, addr, reg)
-
     def halt(self):
         self._bytes += struct.pack("=B", Instructions.I_HALT)
 
@@ -85,24 +67,6 @@ class BufioProgram:
 
     def inc(self, reg1):
         self.add(reg1, 1)
-
-    def down_read(self, lock):
-        self._bytes += struct.pack("=BB", Instructions.I_DOWN_READ, lock)
-
-    def up_read(self, lock):
-        self._bytes += struct.pack("=BB", Instructions.I_UP_READ, lock)
-
-    def down_write(self, lock):
-        self._bytes += struct.pack("=BB", Instructions.I_DOWN_WRITE, lock)
-
-    def up_write(self, lock):
-        self._bytes += struct.pack("=BB", Instructions.I_UP_WRITE, lock)
-
-    def init_barrier(self):
-        pass
-
-    def wait_barrier(self):
-        pass
 
     def new_buf(self, block_reg, dest_reg):
         self._bytes += struct.pack("=BBB", Instructions.I_NEW_BUF, block_reg, dest_reg)
