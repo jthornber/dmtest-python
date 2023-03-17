@@ -206,6 +206,11 @@ class BufioParams:
     def peak_allocated(self):
         return read_sys_param("peak_allocated_bytes")
 
+    @peak_allocated.setter
+    def peak_allocated(self, value):
+        log.info(f"setting peak_allocated_bytes={value}")
+        write_sys_param("peak_allocated_bytes", str(value))
+
     @property
     def current_allocated(self):
         return read_sys_param("current_allocated_bytes")
@@ -216,11 +221,21 @@ class BufioParams:
 
     @max_cache_size.setter
     def max_cache_size(self, value):
-        return write_sys_param("max_cache_size_bytes", str(value))
+        log.info(f"setting max_cache_size={value}")
+        write_sys_param("max_cache_size_bytes", str(value))
+
+    @property
+    def max_age(self):
+        return read_sys_param("max_age_seconds")
+
+    @max_age.setter
+    def max_age(self, value):
+        log.info(f"setting max_age_seconds={value}")
+        write_sys_param("max_age_seconds", str(value))
 
 
 @contextmanager
-def bufio_params_tracker(cache_size=None):
+def bufio_params_tracker(cache_size=units.meg(300), max_age=300):
     def worker(p, stop_event):
         while not stop_event.is_set():
             log.info(
@@ -229,8 +244,12 @@ def bufio_params_tracker(cache_size=None):
             time.sleep(0.5)
 
     p = BufioParams()
-    if cache_size:
-        p.max_cache_size = cache_size * 512
+
+    # we must always set these, becuase prior tests may
+    # have set them to something other than the default.
+    p.max_cache_size = cache_size * 512
+    p.max_age = max_age
+    p.peak_allocated = 0
 
     stop_event = threading.Event()
     tid = threading.Thread(
@@ -242,30 +261,27 @@ def bufio_params_tracker(cache_size=None):
     )
     try:
         tid.start()
-        yield
+        yield p
     finally:
         stop_event.set()
         tid.join()
 
-        """
-        # FIXME: this wont work unless we can reset the peak
-        # before each test.
-        # check max_cache_size was observed (roughly).
-        if p.peak_allocated > int(p.max_cache_size * 1.5):
+        # check max_cache_size was observed.  We can only do this roughly since
+        # it takes time for the cleaner to kick in).
+        if p.peak_allocated > int(p.max_cache_size * units.meg(512) * 512):
             raise ValueError(
-                "bufio max cache size exceeded: max = {p.max_cache_size // (1024 * 1024)}m, peak = {p.peak_allocated // (1024 * 1024)}m"
+                f"bufio max cache size exceeded: max = {p.max_cache_size // (1024 * 1024)}m, peak = {p.peak_allocated // (1024 * 1024)}m"
             )
-        """
 
 
 # Activate bufio test device and create a thread set.  max_cache_size is given
 # in sectors
 @contextmanager
-def bufio_tester(data_dev, cache_size=None):
+def bufio_tester(data_dev, **opts):
     data_size = utils.dev_size(data_dev)
     t = table.Table(targets.BufioTestTarget(data_size, data_dev))
 
-    with bufio_params_tracker(cache_size):
+    with bufio_params_tracker(**opts):
         with dmdev.dev(t) as dev:
             with ThreadSet(dev) as thread_set:
                 yield thread_set
@@ -503,6 +519,48 @@ def t_multiple_caches(fix):
         tid.join()
 
 
+# Checks that buffers that haven't been used for a while get evicted.
+def t_evict_old(fix):
+    data_dev = fix.cfg["data_dev"]
+    nr_blocks = units.gig(1) // units.kilo(4)
+    data_size = utils.dev_size(data_dev)
+    t = table.Table(targets.BufioTestTarget(data_size, data_dev))
+
+    # we want to keep the dev around once the program has
+    # executed, so we have to build the stack by hand
+    # rather than use bufio_tester().
+    with bufio_params_tracker(max_age=30) as params:
+        with dmdev.dev(t) as dev:
+            with ThreadSet(dev) as tester:
+                with tester.program() as p:
+                    block = p.alloc_reg()
+                    buf = p.alloc_reg()
+
+                    p.lit(0, block)
+                    p.checkpoint(0)
+
+                    # mark first 1G as dirty
+                    with loop(p, nr_blocks):
+                        p.new_buf(block, buf)
+                        p.mark_dirty(buf)
+                        p.put_buf(buf)
+                        p.inc(block)
+
+                    # write back
+                    p.checkpoint(1)
+                    p.write_sync()
+                    p.checkpoint(2)
+
+            # the cache should automatically shrink as time
+            # goes by.
+            log.info("beginning to wait")
+            alloc1 = params.current_allocated
+            time.sleep(35)
+            alloc2 = params.current_allocated
+            if alloc2 >= alloc1:
+                raise ValueError("cache didn't shrink")
+
+
 def register(tests):
     tests.register("/bufio/create", t_create)
     tests.register("/bufio/empty-program", t_empty_program)
@@ -513,3 +571,4 @@ def register(tests):
     tests.register("/bufio/writeback-many", t_writeback_many)
     tests.register("/bufio/hotspots", t_hotspots)
     tests.register("/bufio/many-caches", t_multiple_caches)
+    tests.register("/bufio/evict-old", t_evict_old)
