@@ -1,5 +1,6 @@
 import dmtest.device_mapper.dev as dmdev
 import dmtest.device_mapper.table as table
+import dmtest.tvm as tvm
 import dmtest.device_mapper.targets as targets
 import dmtest.units as units
 import dmtest.utils as utils
@@ -437,6 +438,46 @@ def t_hotspots(fix):
                 p.inc(block)
 
 
+def run_cache(fix, table, nr_blocks):
+    with dmdev.dev(table) as data:
+        with bufio_threads(data.path) as thread_set:
+            with thread_set.program() as p:
+                block = p.alloc_reg()
+                buf = p.alloc_reg()
+                p.lit(0, block)
+                with loop(p, nr_blocks) as p:
+                    p.read_buf(block, buf)
+                    p.mark_dirty(buf)
+                    p.put_buf(buf)
+                    p.inc(block)
+
+
+def t_multiple_caches(fix):
+    nr_caches = 4
+    volume_size = units.gig(4)
+    nr_blocks = volume_size // units.kilo(4)
+
+    vm = tvm.VM()
+    vm.add_allocation_volume(fix.cfg["data_dev"])
+
+    for i in range(nr_caches):
+        vm.add_volume(tvm.LinearVolume(f"data{i}", volume_size))
+
+    threads = []
+
+    for _ in range(nr_caches):
+        tid = threading.Thread(
+            target=run_cache, args=(fix, vm.table(f"data{i}"), nr_blocks)
+        )
+        threads.append(tid)
+
+    for tid in threads:
+        tid.start()
+
+    for tid in threads:
+        tid.join()
+
+
 def register(tests):
     tests.register("/bufio/create", t_create)
     tests.register("/bufio/empty-program", t_empty_program)
@@ -446,3 +487,4 @@ def register(tests):
     tests.register("/bufio/writeback-nothing", t_writeback_nothing)
     tests.register("/bufio/writeback-many", t_writeback_many)
     tests.register("/bufio/hotspots", t_hotspots)
+    tests.register("/bufio/many-caches", t_multiple_caches)
