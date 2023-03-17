@@ -287,7 +287,7 @@ def do_new_buf(p, base):
 
     p.lit(base, block)
 
-    with loop(p, 1024) as p:
+    with loop(p, 1024):
         p.new_buf(block, buf)
         p.put_buf(buf)
         p.inc(block)
@@ -313,7 +313,7 @@ def t_stamper(fix):
             p.lit(0, block)
             p.lit(random.randint(0, 1024), pattern)
 
-            with loop(p, 1024) as p:
+            with loop(p, 1024):
                 # stamp
                 p.new_buf(block, buf)
                 p.stamp(buf, pattern)
@@ -341,7 +341,7 @@ def do_stamper(p, base):
     p.lit(base, block)
     p.lit(random.randint(0, 1024), pattern)
 
-    with loop(p, 1024) as p:
+    with loop(p, 1024):
         # stamp
         p.new_buf(block, buf)
         p.stamp(buf, pattern)
@@ -384,7 +384,7 @@ def t_writeback_nothing(fix):
             p.checkpoint(0)
 
             # read data, but don't dirty it
-            with loop(p, nr_blocks) as p:
+            with loop(p, nr_blocks):
                 p.read_buf(block, buf)
                 p.put_buf(buf)
                 p.inc(block)
@@ -408,7 +408,7 @@ def t_writeback_many(fix):
             p.checkpoint(0)
 
             # mark first 8G as dirty
-            with loop(p, nr_blocks) as p:
+            with loop(p, nr_blocks):
                 p.new_buf(block, buf)
                 p.mark_dirty(buf)
                 p.put_buf(buf)
@@ -436,9 +436,9 @@ def t_hotspots(fix):
                 block = p.alloc_reg()
                 buf = p.alloc_reg()
 
-                with loop(p, 512) as p:
+                with loop(p, 512):
                     p.lit(b, block)
-                    with loop(p, e - b) as p:
+                    with loop(p, e - b):
                         p.read_buf(block, buf)
                         p.put_buf(buf)
                         p.inc(block)
@@ -448,7 +448,7 @@ def t_hotspots(fix):
             block = p.alloc_reg()
             buf = p.alloc_reg()
             p.lit(0, block)
-            with loop(p, big_region_size) as p:
+            with loop(p, big_region_size):
                 p.read_buf(block, buf)
                 p.mark_dirty(buf)
                 p.put_buf(buf)
@@ -462,7 +462,7 @@ def run_cache(fix, table, nr_blocks):
                 block = p.alloc_reg()
                 buf = p.alloc_reg()
                 p.lit(0, block)
-                with loop(p, nr_blocks) as p:
+                with loop(p, nr_blocks):
                     p.read_buf(block, buf)
                     p.mark_dirty(buf)
                     p.put_buf(buf)
