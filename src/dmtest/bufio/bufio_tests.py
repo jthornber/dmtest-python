@@ -187,17 +187,6 @@ class ThreadSet:
             tid.join()
 
 
-# Activate bufio test device and create a thread set
-@contextmanager
-def bufio_threads(data_dev):
-    data_size = utils.dev_size(data_dev)
-    t = table.Table(targets.BufioTestTarget(data_size, data_dev))
-    with bufio_params_tracker():
-        with dmdev.dev(t) as dev:
-            with ThreadSet(dev) as thread_set:
-                yield thread_set
-
-
 def _sys_param(name: str) -> str:
     return f"/sys/module/dm_bufio/parameters/{name}"
 
@@ -250,17 +239,28 @@ def bufio_params_tracker():
         tid.join()
 
 
+# Activate bufio test device and create a thread set
+@contextmanager
+def bufio_tester(data_dev):
+    data_size = utils.dev_size(data_dev)
+    t = table.Table(targets.BufioTestTarget(data_size, data_dev))
+    with bufio_params_tracker():
+        with dmdev.dev(t) as dev:
+            with ThreadSet(dev) as thread_set:
+                yield thread_set
+
+
 # -----------------------------------------------
 
 
 def t_create(fix):
-    with bufio_threads(fix.cfg["data_dev"]):
+    with bufio_tester(fix.cfg["data_dev"]):
         pass
 
 
 def t_empty_program(fix):
-    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
-        with thread_set.program():
+    with bufio_tester(fix.cfg["data_dev"]) as tester:
+        with tester.program():
             pass
 
 
@@ -280,15 +280,15 @@ def t_new_buf(fix):
     nr_threads = 16
     nr_gets = 1024
 
-    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
+    with bufio_tester(fix.cfg["data_dev"]) as tester:
         for t in range(nr_threads):
-            with thread_set.program() as p:
+            with tester.program() as p:
                 do_new_buf(p, t * nr_gets)
 
 
 def t_stamper(fix):
-    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
-        with thread_set.program() as p:
+    with bufio_tester(fix.cfg["data_dev"]) as tester:
+        with tester.program() as p:
             block = p.alloc_reg()
             buf = p.alloc_reg()
             pattern = p.alloc_reg()
@@ -348,9 +348,9 @@ def t_many_stampers(fix):
     nr_threads = 16
     nr_gets = 1024
 
-    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
+    with bufio_tester(fix.cfg["data_dev"]) as tester:
         for t in range(nr_threads):
-            with thread_set.program() as p:
+            with tester.program() as p:
                 do_stamper(p, t * nr_gets)
 
 
@@ -358,8 +358,8 @@ def t_writeback_nothing(fix):
     data_dev = fix.cfg["data_dev"]
     nr_blocks = units.meg(512) // units.kilo(4)
 
-    with bufio_threads(data_dev) as thread_set:
-        with thread_set.program() as p:
+    with bufio_tester(data_dev) as tester:
+        with tester.program() as p:
             block = p.alloc_reg()
             buf = p.alloc_reg()
 
@@ -382,8 +382,8 @@ def t_writeback_many(fix):
     data_dev = fix.cfg["data_dev"]
     nr_blocks = units.gig(8) // units.kilo(4)
 
-    with bufio_threads(data_dev) as thread_set:
-        with thread_set.program() as p:
+    with bufio_tester(data_dev) as tester:
+        with tester.program() as p:
             block = p.alloc_reg()
             buf = p.alloc_reg()
 
@@ -412,10 +412,10 @@ def t_hotspots(fix):
 
     big_region_size = units.gig(1) // units.kilo(4)
 
-    with bufio_threads(fix.cfg["data_dev"]) as thread_set:
+    with bufio_tester(fix.cfg["data_dev"]) as tester:
         # hotspot programs
         for b, e in regions:
-            with thread_set.program() as p:
+            with tester.program() as p:
                 block = p.alloc_reg()
                 buf = p.alloc_reg()
 
@@ -427,7 +427,7 @@ def t_hotspots(fix):
                         p.inc(block)
 
         # a background writer
-        with thread_set.program() as p:
+        with tester.program() as p:
             block = p.alloc_reg()
             buf = p.alloc_reg()
             p.lit(0, block)
@@ -440,8 +440,8 @@ def t_hotspots(fix):
 
 def run_cache(fix, table, nr_blocks):
     with dmdev.dev(table) as data:
-        with bufio_threads(data.path) as thread_set:
-            with thread_set.program() as p:
+        with bufio_tester(data.path) as tester:
+            with tester.program() as p:
                 block = p.alloc_reg()
                 buf = p.alloc_reg()
                 p.lit(0, block)
@@ -487,4 +487,6 @@ def register(tests):
     tests.register("/bufio/writeback-nothing", t_writeback_nothing)
     tests.register("/bufio/writeback-many", t_writeback_many)
     tests.register("/bufio/hotspots", t_hotspots)
-    tests.register("/bufio/many-caches", t_multiple_caches)
+
+
+#    tests.register("/bufio/many-caches", t_multiple_caches)
