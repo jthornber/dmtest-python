@@ -1,13 +1,16 @@
 import argparse
 import dmtest.bufio.bufio_tests as bufio
+import dmtest.db as db
 import dmtest.fixture
 import dmtest.process as process
 import dmtest.test_register as test_register
 import dmtest.thin.creation_tests as thin_creation
 import dmtest.thin.deletion_tests as thin_deletion
+import io
 import itertools
 import logging as log
 import os
+import sys
 import time
 
 
@@ -32,27 +35,98 @@ class TreeFormatter:
 
 
 # -----------------------------------------
+# Kernel version should come from command line
+# or environment.
+
+
+class MissingKernelVersion(Exception):
+    pass
+
+
+def get_kernel_version(args):
+    if args.kernel_version:
+        return str(args.kernel_version)
+
+    kv = os.environ.get("DMTEST_KERNEL_VERSION", None)
+    if kv:
+        return str(kv)
+
+    print(
+        """
+Missing kernel version.
+
+This can be specified either on the command line:
+    --kernel-version device-mapper2
+
+or by setting an environment variable:
+    export DMTEST_KERNEL_VERSION=device-mapper2
+
+The kernel version can be any string that is meaningful to you,
+eg 'bufio-rewrite'.
+    """,
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
+# -----------------------------------------
 # 'list' command
 
 
-def cmd_list(tests, args):
+def cmd_list(tests, args, results: db.TestResults):
+    kernel_version = get_kernel_version(args)
     paths = sorted(tests.paths(args.rx))
     formatter = TreeFormatter()
 
     for p in paths:
-        print(f"{formatter.tree_line(p)}")
+        result = results.get_test_result(p, kernel_version)
+        print(f"{formatter.tree_line(p)}", end="")
+        if result:
+            print(f"{result.pass_fail} [{result.duration:.2f}s]")
+        else:
+            print("-")
+
+
+# -----------------------------------------
+# 'log' command
+
+
+def cmd_log(tests, args, results: db.TestResults):
+    kernel_version = get_kernel_version(args)
+    paths = sorted(tests.paths(args.rx))
+
+    for p in paths:
+        result = results.get_test_result(p, kernel_version)
+        if result:
+            print(f"*** LOG FOR {p}, {len(result.log)} ***")
+            print(result.log)
+        else:
+            print(f"*** NO LOG FOR {p}")
 
 
 # -----------------------------------------
 # 'run' command
 
 
-def cmd_run(tests, args):
+def cmd_run(tests, args, results: db.TestResults):
+    kernel_version = get_kernel_version(args)
+
     # select tests
     paths = sorted(tests.paths(args.rx))
     formatter = TreeFormatter()
 
+    # Set up the logging
+    buffer = io.StringIO()
+    log.basicConfig(
+        level=log.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        stream=buffer,
+    )
+
     for p in paths:
+        buffer.seek(0)
+        buffer.truncate()
+
         print(f"{formatter.tree_line(p)}", end="", flush=True)
         log.info(f"Running '{p}'")
 
@@ -65,14 +139,19 @@ def cmd_run(tests, args):
         except Exception as e:
             passed = False
             log.error(f"Exception caught: {e}")
-            raise
         elapsed = time.time() - start
 
+        pass_str = None
         if passed:
             print(f"PASS [{elapsed:.2f}s]")
+            pass_str = "PASS"
         else:
             print("FAIL")
-            log.info(f"*** FAIL {p}")
+            pass_str = "FAIL"
+
+        test_log = buffer.getvalue()
+        result = db.TestResult(p, pass_str, test_log, kernel_version, elapsed)
+        results.insert_test_result(result)
 
 
 # -----------------------------------------
@@ -87,7 +166,7 @@ def which(executable):
         return "-"
 
 
-def cmd_health(tests, args):
+def cmd_health(tests, args, results):
     tools = ["dd", "blktrace", "blockdev", "dmsetup", "thin_check"]
     for t in tools:
         print(f"{(t + ' ').ljust(40, '.')} {which(t)}")
@@ -97,13 +176,22 @@ def cmd_health(tests, args):
 # Command line parser
 
 
-def add_filter(p):
+def arg_filter(p):
     p.add_argument(
         "--rx",
         metavar="PATTERN",
         type=str,
         nargs="*",
         help="select tests that match the given pattern",
+    )
+
+
+def arg_kernel_version(p):
+    p.add_argument(
+        "--kernel-version",
+        metavar="KVERSION",
+        type=str,
+        help="Specify a nickname for the kernel you are testing",
     )
 
 
@@ -114,12 +202,19 @@ def command_line_parser():
     subparsers = parser.add_subparsers()
 
     list_p = subparsers.add_parser("list", help="list tests")
-    add_filter(list_p)
     list_p.set_defaults(func=cmd_list)
+    arg_filter(list_p)
+    arg_kernel_version(list_p)
+
+    log_p = subparsers.add_parser("log", help="list tests")
+    log_p.set_defaults(func=cmd_log)
+    arg_filter(log_p)
+    arg_kernel_version(log_p)
 
     run_p = subparsers.add_parser("run", help="run tests")
-    add_filter(run_p)
     run_p.set_defaults(func=cmd_run)
+    arg_filter(run_p)
+    arg_kernel_version(run_p)
 
     health_p = subparsers.add_parser(
         "health", help="check required tools are installed"
@@ -129,23 +224,11 @@ def command_line_parser():
     return parser
 
 
-def setup_log():
-    logfile = "dmtest.log"
-    os.remove(logfile)
-    log.basicConfig(
-        filename="dmtest.log",
-        format="%(asctime)s %(levelname)s %(message)s",
-        level=log.INFO,
-    )
-
-
 # -----------------------------------------
 # Main
 
 
 def main():
-    setup_log()
-
     parser = command_line_parser()
     args = parser.parse_args()
 
@@ -154,7 +237,8 @@ def main():
     thin_deletion.register(tests)
     bufio.register(tests)
 
-    args.func(tests, args)
+    with db.TestResults("test_results.db") as results:
+        args.func(tests, args, results)
 
 
 main()
