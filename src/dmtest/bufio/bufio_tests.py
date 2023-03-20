@@ -415,6 +415,66 @@ def t_writeback_nothing(fix):
             p.checkpoint(2)
 
 
+def do_writes_hit_disk(fix, write_method):
+    data_dev = fix.cfg["data_dev"]
+    nr_blocks = units.meg(128) // units.kilo(4)
+    pattern_base = random.randint(0, 10240)
+
+    # write pattern across disk
+    with bufio_tester(data_dev) as tester:
+        with tester.program() as p:
+            block = p.alloc_reg()
+            buf = p.alloc_reg()
+            pattern = p.alloc_reg()
+
+            p.lit(0, block)
+            p.lit(pattern_base, pattern)
+
+            with loop(p, nr_blocks):
+                # stamp
+                p.new_buf(block, buf)
+                p.stamp(buf, pattern)
+                p.mark_dirty(buf)
+                p.put_buf(buf)
+
+                p.inc(block)
+                p.inc(pattern)
+
+            # write
+            write_method(p)
+
+    # we teardown the tester and recreate to be sure
+    # the writes have hit the disk before we verify.
+    with bufio_tester(data_dev) as tester:
+        with tester.program() as p:
+            block = p.alloc_reg()
+            buf = p.alloc_reg()
+            pattern = p.alloc_reg()
+
+            p.lit(0, block)
+            p.lit(pattern_base, pattern)
+
+            with loop(p, nr_blocks):
+                p.read_buf(block, buf)
+                p.verify(buf, pattern)
+                p.put_buf(buf)
+
+                p.inc(block)
+                p.inc(pattern)
+
+
+def t_writes_hit_disk_sync(fix):
+    do_writes_hit_disk(fix, lambda p: p.write_sync())
+
+
+def t_writes_hit_disk_async(fix):
+    def async_write(p):
+        p.write_async()
+        p.flush()
+
+    do_writes_hit_disk(fix, async_write)
+
+
 def t_writeback_many(fix):
     data_dev = fix.cfg["data_dev"]
     nr_blocks = units.gig(8) // units.kilo(4)
@@ -567,6 +627,8 @@ def register(tests):
     tests.register("/bufio/new-buf", t_new_buf)
     tests.register("/bufio/stamper", t_stamper)
     tests.register("/bufio/many-stampers", t_many_stampers)
+    tests.register("/bufio/writes-hit-disk/sync", t_writes_hit_disk_sync)
+    tests.register("/bufio/writes-hit-disk/async", t_writes_hit_disk_async)
     tests.register("/bufio/writeback-nothing", t_writeback_nothing)
     tests.register("/bufio/writeback-many", t_writeback_many)
     tests.register("/bufio/hotspots", t_hotspots)
