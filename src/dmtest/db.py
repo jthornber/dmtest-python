@@ -7,7 +7,7 @@ class TestResult(NamedTuple):
     test_name: str
     pass_fail: str  # FIXME: change to bool
     log: str
-    kernel_version: str
+    result_set: str
     duration: float
 
 
@@ -26,12 +26,12 @@ class TestResults:
     def _create_tables(self):
         cursor = self._conn.cursor()
 
-        # Create the 'kernel_versions' table
+        # Create the 'result_sets' table
         cursor.execute(
             """
-        CREATE TABLE IF NOT EXISTS kernel_versions (
-            version_id INTEGER PRIMARY KEY,
-            version TEXT UNIQUE
+        CREATE TABLE IF NOT EXISTS result_sets (
+            result_set_id INTEGER PRIMARY KEY,
+            result_set TEXT UNIQUE
         )
         """
         )
@@ -54,11 +54,11 @@ class TestResults:
             test_name_id INTEGER,
             pass_fail TEXT,
             log BLOB,
-            version_id INTEGER,
+            result_set_id INTEGER,
             duration REAL,
-            FOREIGN KEY (version_id) REFERENCES kernel_versions (version_id)
+            FOREIGN KEY (result_set_id) REFERENCES result_sets (result_set_id)
             FOREIGN KEY (test_name_id) REFERENCES test_names (test_name_id),
-            UNIQUE (test_name_id, version_id)
+            UNIQUE (test_name_id, result_set_id)
         )
         """
         )
@@ -66,19 +66,17 @@ class TestResults:
         # Commit the changes
         self._conn.commit()
 
-    # Function to insert a software version
-    def insert_kernel_version(self, version):
+    def insert_result_set(self, result_set):
         cursor = self._conn.cursor()
         cursor.execute(
-            "INSERT OR IGNORE INTO kernel_versions (version) VALUES (?)", (version,)
+            "INSERT OR IGNORE INTO result_sets (result_set) VALUES (?)", (result_set,)
         )
         self._conn.commit()
 
-    # Function to get the version_id for a given software version
-    def get_kernel_version_id(self, version):
+    def get_result_set_id(self, result_set):
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT version_id FROM kernel_versions WHERE version = ?", (version,)
+            "SELECT result_set_id FROM result_sets WHERE result_set = ?", (result_set,)
         )
         row = cursor.fetchone()
 
@@ -113,50 +111,50 @@ class TestResults:
         self.insert_test_name(result.test_name)
         test_name_id = self.get_test_name_id(result.test_name)
 
-        self.insert_kernel_version(result.kernel_version)
-        version_id = self.get_kernel_version_id(result.kernel_version)
+        self.insert_result_set(result.result_set)
+        result_set_id = self.get_result_set_id(result.result_set)
 
         cursor = self._conn.cursor()
-        if test_name_id and version_id:
+        if test_name_id and result_set_id:
             try:
                 # We don't care if this fails
                 cursor.execute(
-                    "DELETE FROM test_results WHERE test_name_id = ? AND version_id = ?",
-                    (test_name_id, version_id),
+                    "DELETE FROM test_results WHERE test_name_id = ? AND result_set_id = ?",
+                    (test_name_id, result_set_id),
                 )
             finally:
                 pass
 
         compressed_log = zlib.compress(result.log.encode("utf-8"))
         cursor.execute(
-            "INSERT INTO test_results (test_name_id, pass_fail, log, version_id, duration) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO test_results (test_name_id, pass_fail, log, result_set_id, duration) VALUES (?, ?, ?, ?, ?)",
             (
                 test_name_id,
                 result.pass_fail,
                 compressed_log,
-                version_id,
+                result_set_id,
                 result.duration,
             ),
         )
         self._conn.commit()
 
-    def get_test_result(self, test_name: str, version: str) -> Optional[TestResult]:
+    def get_test_result(self, test_name: str, result_set: str) -> Optional[TestResult]:
         test_name_id = self.get_test_name_id(test_name)
-        version_id = self.get_kernel_version_id(version)
+        result_set_id = self.get_result_set_id(result_set)
 
-        if test_name_id is None or version_id is None:
+        if test_name_id is None or result_set_id is None:
             return None
 
         cursor = self._conn.cursor()
         cursor.execute(
             """
-            SELECT test_names.test_name, test_results.pass_fail, test_results.log, kernel_versions.version, test_results.duration
+            SELECT test_names.test_name, test_results.pass_fail, test_results.log, result_sets.result_set, test_results.duration
             FROM test_results
             JOIN test_names ON test_results.test_name_id = test_names.test_name_id
-            JOIN kernel_versions ON test_results.version_id = kernel_versions.version_id
-            WHERE test_results.test_name_id = ? AND test_results.version_id = ?
+            JOIN result_sets ON test_results.result_set_id = result_sets.result_set_id
+            WHERE test_results.test_name_id = ? AND test_results.result_set_id = ?
         """,
-            (test_name_id, version_id),
+            (test_name_id, result_set_id),
         )
 
         row = cursor.fetchone()
@@ -169,7 +167,7 @@ class TestResults:
             test_name=row[0],
             pass_fail=row[1],
             log=log,
-            kernel_version=row[3],
+            result_set=row[3],
             duration=row[4],
         )
 

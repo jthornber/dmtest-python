@@ -35,33 +35,29 @@ class TreeFormatter:
 
 
 # -----------------------------------------
-# Kernel version should come from command line
+# 'result set' should come from command line
 # or environment.
 
 
-class MissingKernelVersion(Exception):
-    pass
+def get_result_set(args):
+    if args.result_set:
+        return str(args.result_set)
 
-
-def get_kernel_version(args):
-    if args.kernel_version:
-        return str(args.kernel_version)
-
-    kv = os.environ.get("DMTEST_KERNEL_VERSION", None)
-    if kv:
-        return str(kv)
+    rs = os.environ.get("DMTEST_RESULT_SET", None)
+    if rs:
+        return str(rs)
 
     print(
         """
-Missing kernel version.
+Missing result set.
 
 This can be specified either on the command line:
-    --kernel-version device-mapper2
+    --result-set device-mapper2
 
 or by setting an environment variable:
-    export DMTEST_KERNEL_VERSION=device-mapper2
+    export DMTEST_RESULT_SET=device-mapper2
 
-The kernel version can be any string that is meaningful to you,
+The result set can be any string that is meaningful to you,
 eg 'bufio-rewrite'.
     """,
         file=sys.stderr,
@@ -74,12 +70,12 @@ eg 'bufio-rewrite'.
 
 
 def cmd_list(tests, args, results: db.TestResults):
-    kernel_version = get_kernel_version(args)
+    result_set = get_result_set(args)
     paths = sorted(tests.paths(args.rx))
     formatter = TreeFormatter()
 
     for p in paths:
-        result = results.get_test_result(p, kernel_version)
+        result = results.get_test_result(p, result_set)
         print(f"{formatter.tree_line(p)}", end="")
         if result:
             print(f"{result.pass_fail} [{result.duration:.2f}s]")
@@ -92,13 +88,14 @@ def cmd_list(tests, args, results: db.TestResults):
 
 
 def cmd_log(tests, args, results: db.TestResults):
-    kernel_version = get_kernel_version(args)
+    result_set = get_result_set(args)
     paths = sorted(tests.paths(args.rx))
 
     for p in paths:
-        result = results.get_test_result(p, kernel_version)
+        result = results.get_test_result(p, result_set)
         if result:
-            print(f"*** LOG FOR {p}, {len(result.log)} ***")
+            if len(paths) > 1:
+                print(f"*** LOG FOR {p}, {len(result.log)} ***")
             print(result.log)
         else:
             print(f"*** NO LOG FOR {p}")
@@ -109,7 +106,7 @@ def cmd_log(tests, args, results: db.TestResults):
 
 
 def cmd_run(tests, args, results: db.TestResults):
-    kernel_version = get_kernel_version(args)
+    result_set = get_result_set(args)
 
     # select tests
     paths = sorted(tests.paths(args.rx))
@@ -150,7 +147,7 @@ def cmd_run(tests, args, results: db.TestResults):
             pass_str = "FAIL"
 
         test_log = buffer.getvalue()
-        result = db.TestResult(p, pass_str, test_log, kernel_version, elapsed)
+        result = db.TestResult(p, pass_str, test_log, result_set, elapsed)
         results.insert_test_result(result)
 
 
@@ -186,10 +183,10 @@ def arg_filter(p):
     )
 
 
-def arg_kernel_version(p):
+def arg_result_set(p):
     p.add_argument(
-        "--kernel-version",
-        metavar="KVERSION",
+        "--result-set",
+        metavar="RESULT_SET",
         type=str,
         help="Specify a nickname for the kernel you are testing",
     )
@@ -204,17 +201,17 @@ def command_line_parser():
     list_p = subparsers.add_parser("list", help="list tests")
     list_p.set_defaults(func=cmd_list)
     arg_filter(list_p)
-    arg_kernel_version(list_p)
+    arg_result_set(list_p)
 
     log_p = subparsers.add_parser("log", help="list tests")
     log_p.set_defaults(func=cmd_log)
     arg_filter(log_p)
-    arg_kernel_version(log_p)
+    arg_result_set(log_p)
 
     run_p = subparsers.add_parser("run", help="run tests")
     run_p.set_defaults(func=cmd_run)
     arg_filter(run_p)
-    arg_kernel_version(run_p)
+    arg_result_set(run_p)
 
     health_p = subparsers.add_parser(
         "health", help="check required tools are installed"
