@@ -66,6 +66,15 @@ eg 'bufio-rewrite'.
 
 
 # -----------------------------------------
+# 'result-sets' command
+
+
+def cmd_result_sets(tests, args, results: db.TestResults):
+    for rs in results.get_result_sets():
+        print(f"    {rs}")
+
+
+# -----------------------------------------
 # 'list' command
 
 
@@ -197,6 +206,9 @@ def command_line_parser():
         prog="dmtest", description="run device-mapper tests"
     )
     subparsers = parser.add_subparsers()
+
+    result_sets_p = subparsers.add_parser("result-sets", help="list result sets")
+    result_sets_p.set_defaults(func=cmd_result_sets)
 
     list_p = subparsers.add_parser("list", help="list tests")
     list_p.set_defaults(func=cmd_list)

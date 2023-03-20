@@ -1,6 +1,6 @@
 import sqlite3
 import zlib
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, List
 
 
 class TestResult(NamedTuple):
@@ -172,3 +172,9 @@ class TestResults:
         )
 
         return test_result
+
+    def get_result_sets(self) -> List[str]:
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT result_set FROM result_sets")
+        rows = cursor.fetchall()
+        return [row[0] for row in rows]
