@@ -258,6 +258,10 @@ def main():
     parser = command_line_parser()
     args = parser.parse_args()
 
+    if not hasattr(args, "func"):
+        parser.print_help()
+        sys.exit(1)
+
     tests = test_register.TestRegister()
     thin_creation.register(tests)
     thin_deletion.register(tests)
