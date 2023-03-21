@@ -11,6 +11,10 @@ class TestResult(NamedTuple):
     duration: float
 
 
+class NoSuchResultSet(Exception):
+    pass
+
+
 class TestResults:
     def __init__(self, path):
         # Connect to the SQLite database (create the file if it doesn't exist)
@@ -178,3 +182,23 @@ class TestResults:
         cursor.execute("SELECT result_set FROM result_sets")
         rows = cursor.fetchall()
         return [row[0] for row in rows]
+
+    # Removes a result_set and all test results associated with it.
+    def delete_result_set(self, result_set):
+        cursor = self._conn.cursor()
+        result_set_id = self.get_result_set_id(result_set)
+
+        if result_set_id is None:
+            raise NoSuchResultSet("Result set '{result_set}' not found")
+
+        # Remove test results associated with the result_set_id
+        cursor.execute(
+            "DELETE FROM test_results WHERE result_set_id = ?", (result_set_id,)
+        )
+        self._conn.commit()
+
+        # Remove the result set
+        cursor.execute(
+            "DELETE FROM result_sets WHERE result_set_id = ?", (result_set_id,)
+        )
+        self._conn.commit()

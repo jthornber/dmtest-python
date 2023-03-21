@@ -75,6 +75,17 @@ def cmd_result_sets(tests, args, results: db.TestResults):
 
 
 # -----------------------------------------
+# 'result-set-delete' command
+
+
+def cmd_result_set_delete(tests, args, results: db.TestResult):
+    try:
+        results.delete_result_set(args.result_set)
+    except db.NoSuchResultSet:
+        print(f"No such result set '{args.result_set}'", file=sys.stderr)
+
+
+# -----------------------------------------
 # 'list' command
 
 
@@ -209,6 +220,12 @@ def command_line_parser():
 
     result_sets_p = subparsers.add_parser("result-sets", help="list result sets")
     result_sets_p.set_defaults(func=cmd_result_sets)
+
+    result_set_delete_p = subparsers.add_parser(
+        "result-set-delete", help="list result sets"
+    )
+    result_set_delete_p.set_defaults(func=cmd_result_set_delete)
+    result_set_delete_p.add_argument("result_set", help="The result set to delete")
 
     list_p = subparsers.add_parser("list", help="list tests")
     list_p.set_defaults(func=cmd_list)
