@@ -260,7 +260,7 @@ def main():
 
     if not hasattr(args, "func"):
         parser.print_help()
-        sys.exit(1)
+        sys.exit(0)
 
     tests = test_register.TestRegister()
     thin_creation.register(tests)
@@ -271,4 +271,5 @@ def main():
         args.func(tests, args, results)
 
 
-main()
+if __name__ == "__main__":
+    main()
