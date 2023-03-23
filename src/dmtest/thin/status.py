@@ -21,36 +21,35 @@ def _parse_opts(h, toks):
     h["error-if-no-space"] = False
 
     for t in toks:
-        match t:
-            case "skip_block_zeroing":
-                h["block-zeroing"] = False
+        if t == "skip_block_zeroing":
+            h["block-zeroing"] = False
 
-            case "ignore_discard":
-                h["ignore-discard"] = True
+        elif t == "ignore_discard":
+            h["ignore-discard"] = True
 
-            case "no_discard_passdown":
-                h["discard-passdown"] = False
+        elif t == "no_discard_passdown":
+            h["discard-passdown"] = False
 
-            case "discard_passdown":
-                h["discard-passdown"] = True
+        elif t == "discard_passdown":
+            h["discard-passdown"] = True
 
-            case "out_of_data_space":
-                h["mode"] = "out-of-data-space"
+        elif t == "out_of_data_space":
+            h["mode"] = "out-of-data-space"
 
-            case "ro":
-                h["mode"] = "read-only"
+        elif t == "ro":
+            h["mode"] = "read-only"
 
-            case "rw":
-                h["mode"] = "read-write"
+        elif t == "rw":
+            h["mode"] = "read-write"
 
-            case "error_if_no_space":
-                h["error-if-no-space"] = True
+        elif t == "error_if_no_space":
+            h["error-if-no-space"] = True
 
-            case "queue_if_no_space":
-                h["error-if-no-space"] = False
+        elif t == "queue_if_no_space":
+            h["error-if-no-space"] = False
 
-            case _:
-                raise ValueError(f"Bad pool option {t}")
+        else:
+            raise ValueError(f"Bad pool option {t}")
 
 
 def _parse_needs_check(str):
