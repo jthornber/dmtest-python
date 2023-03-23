@@ -267,8 +267,11 @@ def main():
     thin_deletion.register(tests)
     bufio.register(tests)
 
-    with db.TestResults("test_results.db") as results:
-        args.func(tests, args, results)
+    try:
+        with db.TestResults("test_results.db") as results:
+            args.func(tests, args, results)
+    except BrokenPipeError:
+        os._exit(0)
 
 
 if __name__ == "__main__":
