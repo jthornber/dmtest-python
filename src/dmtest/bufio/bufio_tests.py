@@ -535,6 +535,40 @@ def t_hotspots(fix):
                 p.inc(block)
 
 
+def t_hotspots2(fix):
+    nr_hotspots = 16
+
+    # size in 4k blocks
+    region_size = units.meg(4) // units.kilo(4)
+    regions = [(n * region_size, (n + 1) * region_size) for n in range(0, nr_hotspots)]
+
+    big_region_size = units.gig(1) // units.kilo(4)
+
+    with bufio_tester(fix.cfg["data_dev"]) as tester:
+        # hotspot programs
+        for b, e in regions:
+            with tester.program() as p:
+                block = p.alloc_reg()
+                buf = p.alloc_reg()
+
+                # warm the cache
+                p.lit(b, block)
+                with loop(p, e - b):
+                    p.new_buf(block, buf)
+                    p.put_buf(buf)
+                    p.inc(block)
+
+                # benchmark
+                p.checkpoint(1)
+                with loop(p, 512):
+                    p.lit(b, block)
+                    with loop(p, e - b):
+                        p.read_buf(block, buf)
+                        p.put_buf(buf)
+                        p.inc(block)
+                p.checkpoint(2)
+
+
 def run_cache(fix, table, nr_blocks):
     with dmdev.dev(table) as data:
         with bufio_tester(data.path) as tester:
@@ -632,5 +666,6 @@ def register(tests):
     tests.register("/bufio/writeback-nothing", t_writeback_nothing)
     tests.register("/bufio/writeback-many", t_writeback_many)
     tests.register("/bufio/hotspots", t_hotspots)
+    tests.register("/bufio/hotspots2", t_hotspots2)
     tests.register("/bufio/many-caches", t_multiple_caches)
     tests.register("/bufio/evict-old", t_evict_old)
