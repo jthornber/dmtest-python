@@ -5,7 +5,7 @@ import toml
 # /boot.  This check tries to avoid that.  The exception is
 # virt devices, which don't seem to have an id.
 def check_dev(cfg, name):
-    if cfg["disable_by_id_check"]:
+    if cfg.get("disable_by_id_check", False):
         return
 
     value = cfg[name]
