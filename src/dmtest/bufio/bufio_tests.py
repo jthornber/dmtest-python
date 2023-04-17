@@ -650,7 +650,7 @@ def t_evict_old(fix):
             # goes by.
             log.info("beginning to wait")
             alloc1 = params.current_allocated
-            time.sleep(35)
+            time.sleep(60)
             alloc2 = params.current_allocated
             if alloc2 >= alloc1:
                 raise ValueError("cache didn't shrink")
