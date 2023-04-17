@@ -1,9 +1,10 @@
 import dmtest.device_mapper.dev as dmdev
 import dmtest.device_mapper.table as table
-import dmtest.tvm as tvm
 import dmtest.device_mapper.targets as targets
+import dmtest.tvm as tvm
 import dmtest.units as units
 import dmtest.utils as utils
+import dmtest.test_register as reg
 import enum
 import logging as log
 import mmap
@@ -656,16 +657,22 @@ def t_evict_old(fix):
 
 
 def register(tests):
-    tests.register("/bufio/create", t_create)
-    tests.register("/bufio/empty-program", t_empty_program)
-    tests.register("/bufio/new-buf", t_new_buf)
-    tests.register("/bufio/stamper", t_stamper)
-    tests.register("/bufio/many-stampers", t_many_stampers)
-    tests.register("/bufio/writes-hit-disk/sync", t_writes_hit_disk_sync)
-    tests.register("/bufio/writes-hit-disk/async", t_writes_hit_disk_async)
-    tests.register("/bufio/writeback-nothing", t_writeback_nothing)
-    tests.register("/bufio/writeback-many", t_writeback_many)
-    tests.register("/bufio/hotspots", t_hotspots)
-    tests.register("/bufio/hotspots2", t_hotspots2)
-    tests.register("/bufio/many-caches", t_multiple_caches)
-    tests.register("/bufio/evict-old", t_evict_old)
+    tests.register_batch(
+        "/bufio/",
+        [
+            ("create", t_create),
+            ("empty-program", t_empty_program),
+            ("new-buf", t_new_buf),
+            ("stamper", t_stamper),
+            ("many-stampers", t_many_stampers),
+            ("writes-hit-disk/sync", t_writes_hit_disk_sync),
+            ("writes-hit-disk/async", t_writes_hit_disk_async),
+            ("writeback-nothing", t_writeback_nothing),
+            ("writeback-many", t_writeback_many),
+            ("hotspots", t_hotspots),
+            ("hotspots2", t_hotspots2),
+            ("many-caches", t_multiple_caches),
+            ("evict-old", t_evict_old),
+        ],
+        dep_fn=reg.has_target("bufio_test"),
+    )
