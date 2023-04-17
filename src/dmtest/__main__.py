@@ -6,7 +6,6 @@ import dmtest.process as process
 import dmtest.test_register as test_register
 import dmtest.thin.creation_tests as thin_creation
 import dmtest.thin.deletion_tests as thin_deletion
-import dmtest.thin.discard_tests as thin_discard
 import io
 import itertools
 import logging as log
@@ -273,7 +272,6 @@ def main():
     tests = test_register.TestRegister()
     thin_creation.register(tests)
     thin_deletion.register(tests)
-    thin_discard.register(tests)
     bufio.register(tests)
 
     try:
