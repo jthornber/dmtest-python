@@ -5,7 +5,7 @@ from typing import NamedTuple, Optional, List
 
 class TestResult(NamedTuple):
     test_name: str
-    pass_fail: str  # FIXME: change to bool
+    pass_fail: str
     log: str
     result_set: str
     duration: float

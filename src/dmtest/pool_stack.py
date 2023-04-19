@@ -73,3 +73,13 @@ def new_thins(pool, size, ids):
         pool.message(0, f"create_thin {id}")
 
     return thins(pool, size, *ids)
+
+
+def new_snap(pool, size, id, old_id, pause_dev=None, origin=None):
+    if pause_dev:
+        with pause_dev.pause():
+            pool.message(0, "create_snap #{id} #{old_id}")
+    else:
+        pool.message(0, "create_snap #{id} #{old_id}")
+
+    return thin(pool, size, id, origin)

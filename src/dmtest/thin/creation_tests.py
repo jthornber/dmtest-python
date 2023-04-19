@@ -32,7 +32,7 @@ def t_activate_thin_while_pool_suspended_fails(fix):
     volume_size = units.gig(4)
     with standard_pool(fix) as pool:
         pool.message(0, "create_thin 0")
-        with dmdev.pause(pool):
+        with pool.pause():
             try:
                 with ps.thin(pool, volume_size, 0):
                     # expect failure

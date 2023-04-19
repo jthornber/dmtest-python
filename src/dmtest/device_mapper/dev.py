@@ -65,17 +65,16 @@ class Dev:
         output = dm.status(self._name, "-v")
         dm.extract_event_nr(output)
 
-
-@contextmanager
-def pause(dev, noflush=False):
-    try:
-        if noflush:
-            dev.suspend_noflush()
-        else:
-            dev.suspend()
-        yield dev
-    finally:
-        dev.resume()
+    @contextmanager
+    def pause(dev, noflush=False):
+        try:
+            if noflush:
+                dev.suspend_noflush()
+            else:
+                dev.suspend()
+            yield dev
+        finally:
+            dev.resume()
 
 
 @contextmanager

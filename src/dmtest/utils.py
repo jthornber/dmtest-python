@@ -139,3 +139,13 @@ def timed(desc: str):
         end_time = time.time()
         duration = end_time - start_time
         log.info(f"{desc} took {duration:.4f} seconds")
+
+
+@contextmanager
+def change_dir(directory):
+    current_dir = os.getcwd()
+    os.chdir(directory)
+    try:
+        yield
+    finally:
+        os.chdir(current_dir)
