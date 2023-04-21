@@ -215,11 +215,42 @@ def which(executable):
         return "-"
 
 
+targets_to_kmodules = {
+    "thin-pool": "dm_thin_pool",
+    "thin": "dm_thin_pool",
+    "linear": "device_mapper",
+    "bufio_test": "dm_bufio_test",
+}
+
+
+def has_target(target):
+    # It may already be loaded or compiled in
+    (_, stdout, stderr) = process.run(f"dmsetup targets")
+    if target in stdout:
+        return True
+
+    if target not in targets_to_kmodules:
+        raise ValueError("Missing target -> kmodules mapping for '{target}'")
+
+    kmod = targets_to_kmodules[target]
+    (code, stdout, stderr) = process.run(f"modprobe {kmod}", raise_on_fail=False)
+    return code == 0
+
+
 def cmd_health(tests, args, results):
     test_deps = dep.read_test_deps(test_dep_path)
+
+    print("Executables:\n")
     tools = test_deps.get_all_executables()
     for t in tools:
         print(f"{(t + ' ').ljust(40, '.')} {which(t)}")
+    print("\n")
+
+    print("Targets:\n")
+    targets = test_deps.get_all_targets()
+    for t in targets:
+        found = "present" if has_target(t) else "missing"
+        print(f"{t.ljust(40, '.')} {found}")
 
 
 # -----------------------------------------

@@ -44,6 +44,13 @@ class TestDeps:
 
         return sorted(r)
 
+    def get_all_targets(self):
+        r = set()
+        for d in self._deps.values():
+            r.update(d["targets"])
+
+        return sorted(r)
+
 
 def read_test_deps(path):
     deps = TestDeps()
