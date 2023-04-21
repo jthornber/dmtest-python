@@ -96,6 +96,9 @@ def cmd_list(tests, args, results: db.TestResults):
     paths = sorted(tests.paths(args.rx))
     formatter = TreeFormatter()
 
+    if len(paths) == 0:
+        print("No matching tests found.")
+
     for p in paths:
         result = results.get_test_result(p, result_set)
         print(f"{formatter.tree_line(p)}", end="")
@@ -112,6 +115,9 @@ def cmd_list(tests, args, results: db.TestResults):
 def cmd_log(tests, args, results: db.TestResults):
     result_set = get_result_set(args)
     paths = sorted(tests.paths(args.rx))
+
+    if len(paths) == 0:
+        print("No matching tests found.")
 
     for p in paths:
         result = results.get_test_result(p, result_set)
@@ -133,6 +139,9 @@ def cmd_run(tests, args, results: db.TestResults):
     # select tests
     paths = sorted(tests.paths(args.rx))
     formatter = TreeFormatter()
+
+    if len(paths) == 0:
+        print("No matching tests found.")
 
     # Set up the logging
     buffer = io.StringIO()
