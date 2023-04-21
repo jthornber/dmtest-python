@@ -63,9 +63,9 @@ def new_thin(pool, size, id, origin=None):
 
 def thins(pool, size, *ids):
     def to_table(id):
-        _thin_table(pool, size, id)
+        return _thin_table(pool, size, id)
 
-    return dmdev.devs(map(_thin_table, ids))
+    return dmdev.devs(*list(map(to_table, ids)))
 
 
 def new_thins(pool, size, ids):
@@ -78,8 +78,8 @@ def new_thins(pool, size, ids):
 def new_snap(pool, size, id, old_id, pause_dev=None, origin=None):
     if pause_dev:
         with pause_dev.pause():
-            pool.message(0, "create_snap #{id} #{old_id}")
+            pool.message(0, f"create_snap {id} {old_id}")
     else:
-        pool.message(0, "create_snap #{id} #{old_id}")
+        pool.message(0, f"create_snap {id} {old_id}")
 
     return thin(pool, size, id, origin)

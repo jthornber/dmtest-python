@@ -1,3 +1,6 @@
+SECTOR_SIZE = 512
+
+
 def kilo(n):
     return n * 2
 

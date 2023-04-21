@@ -116,6 +116,24 @@ def _dd_device(ifile, ofile, oflag, sectors):
         )
 
 
+def dt_device(file, io_type=None, pattern=None, size=None, rseed=None):
+    iotype = "random"
+    pattern = "iot"
+    size = dev_size(file)
+    rseed = rseed or 1234
+
+    process.run(
+        f"dt of={file} capacity={size*512} pattern={pattern} passes=1 iotype={iotype} bs=4M rseed={rseed}"
+    )
+
+
+"""
+def verify_device(ifile, ofile, rseed=None):
+    rseed = rseed or 1234
+    process.run(f"dt iomode=verify if={ifile} of={ofile} bs=4M rseed={rseed}")
+"""
+
+
 # A device could either be a str or a dmdev
 def _to_path(dev):
     return str(dev)

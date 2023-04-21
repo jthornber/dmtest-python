@@ -1,3 +1,5 @@
+import dmtest.utils as utils
+
 import os
 import re
 
@@ -44,11 +46,8 @@ class Dataset:
     @staticmethod
     def in_directory(dir_path, callback):
         os.makedirs(dir_path, exist_ok=True)
-        os.chdir(dir_path)
-        try:
+        with utils.change_dir(dir_path):
             callback()
-        finally:
-            os.chdir("..")
 
     @staticmethod
     def create_file_in_directory(name, size):

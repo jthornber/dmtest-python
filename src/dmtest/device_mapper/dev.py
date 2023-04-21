@@ -77,6 +77,10 @@ class Dev:
             dev.resume()
 
 
+def random_name():
+    return f"test-dev-{random.randint(0, 1000000)}"
+
+
 @contextmanager
 def dev(table, read_only=False):
     """
@@ -94,7 +98,7 @@ def dev(table, read_only=False):
     Yields:
         Dev: The created and activated device-mapper device instance.
     """
-    name = f"test-dev-{random.randint(0, 1000000)}"
+    name = random_name()
 
     dev = Dev(name)
     try:
@@ -120,10 +124,10 @@ def devs(*tables):
     Creates one or more anonymous device-mapper devices and yields a tuple of
     the created devices.
     Args:
-        tables (tuple): A tuple of table strings, one for each device to
+        tables (list): A tuple of table strings, one for each device to
                         create.
     Yields:
-        tuple: A tuple of the created device-mapper devices.
+        list: A tuple of the created device-mapper devices.
     Raises:
         Exception: If any device-mapper devices fail to create.
         DeviceCleanupError: If any device-mapper devices fail to remove.
@@ -133,7 +137,8 @@ def devs(*tables):
     try:
         # Create devices
         for table in tables:
-            dev_instance = Dev(table)
+            name = random_name()
+            dev_instance = Dev(name)
             dev_instance.load(table)
             dev_instance.resume()
             dev_instances.append(dev_instance)

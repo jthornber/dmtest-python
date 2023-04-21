@@ -1,4 +1,5 @@
 import dmtest.process as process
+import dmtest.utils as utils
 
 from contextlib import contextmanager
 import os
@@ -29,11 +30,14 @@ class BaseFS:
         process.run(self.check_cmd())
 
     @contextmanager
-    def mounted(self, mount_point, **opts):
+    def mount_and_chdir(self, mount_point, **opts):
         self.mount(mount_point, **opts)
         try:
+            cwd = os.getcwd()  # store current working directory
+            os.chdir(mount_point)  # change current working directory to mount point
             yield
         finally:
+            os.chdir(cwd)  # restore original working directory
             self.umount()
 
 
@@ -49,7 +53,7 @@ class Ext4(BaseFS):
         return f"mkfs.ext4 -F -E lazy_itable_init=1,{discard_arg} {self._dev}"
 
 
-class XFS(BaseFS):
+class Xfs(BaseFS):
     def mount_cmd(self, mount_point, opts):
         discard_arg = ",discard" if opts.get("discard", False) else ""
         return f"mount -o nouuid{discard_arg} {self._dev} {self._mount_point}"
