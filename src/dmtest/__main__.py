@@ -136,9 +136,10 @@ def cmd_log(tests, args, results: db.TestResults):
 # -----------------------------------------
 # 'run' command
 
+test_dep_path = "./test_dependencies.toml"
+
 
 def cmd_run(tests, args, results: db.TestResults):
-    test_dep_path = "./test_dependencies.toml"
     test_deps = dep.read_test_deps(test_dep_path)
 
     result_set = get_result_set(args)
@@ -215,7 +216,8 @@ def which(executable):
 
 
 def cmd_health(tests, args, results):
-    tools = ["dd", "blktrace", "blockdev", "dmsetup", "thin_check"]
+    test_deps = dep.read_test_deps(test_dep_path)
+    tools = test_deps.get_all_executables()
     for t in tools:
         print(f"{(t + ' ').ljust(40, '.')} {which(t)}")
 

@@ -37,6 +37,13 @@ class TestDeps:
             self._updated = True
             self._deps[test_name] = new_dep
 
+    def get_all_executables(self):
+        r = set()
+        for d in self._deps.values():
+            r.update(d["executables"])
+
+        return sorted(r)
+
 
 def read_test_deps(path):
     deps = TestDeps()
@@ -67,9 +74,11 @@ def dep_tracker():
 
 def add_exe(name):
     global global_dep_tracker
-    global_dep_tracker.add_executable(name)
+    if global_dep_tracker:
+        global_dep_tracker.add_executable(name)
 
 
 def add_target(name):
     global global_dep_tracker
-    global_dep_tracker.add_target(name)
+    if global_dep_tracker:
+        global_dep_tracker.add_target(name)
