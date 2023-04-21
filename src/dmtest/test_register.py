@@ -16,7 +16,7 @@ def _build_predicate_regex(pats):
     regexes = [re.compile(regex) for regex in pats]
 
     def predicate(s):
-        return any(regex.match(s) for regex in regexes)
+        return any(regex.search(s) for regex in regexes)
 
     return predicate
 
