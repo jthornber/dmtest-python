@@ -1,9 +1,15 @@
 import logging as log
 import subprocess
+import dmtest.dependency_tracker as dep
 
 
 def run(command, raise_on_fail=True):
     log.info(f"running: '{command}'")
+
+    # Register the exe with the dependency tracker
+    exe = command.lstrip().split()[0]
+    dep.add_exe(exe)
+
     proc = subprocess.Popen(
         command,
         shell=True,

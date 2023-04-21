@@ -1,8 +1,14 @@
-import re
+import dmtest.dependency_tracker as dep
 import dmtest.utils as utils
 import logging as log
+import re
 
 from dmtest.process import run
+
+
+def register_targets(table):
+    for t in table:
+        dep.add_target(t.type)
 
 
 def create(name):
@@ -10,6 +16,7 @@ def create(name):
 
 
 def load(name, table):
+    register_targets(table)
     with utils.TempFile() as tf:
         f = tf.file
         lines = table.table_lines()
@@ -20,6 +27,7 @@ def load(name, table):
 
 
 def load_ro(name, table):
+    register_targets(table)
     with utils.TempFile() as tf:
         f = tf.file()
         lines = table.table_lines()

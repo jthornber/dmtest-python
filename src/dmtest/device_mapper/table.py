@@ -6,7 +6,7 @@ class Table:
         len(self._targets)
 
     def __iter__(self):
-        return iter(self._targets())
+        return iter(self._targets)
 
     def table_lines(self):
         start_sector = 0

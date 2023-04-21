@@ -8,6 +8,7 @@ import dmtest.thin.creation_tests as thin_creation
 import dmtest.thin.deletion_tests as thin_deletion
 import dmtest.thin.discard_tests as thin_discard
 import dmtest.thin.snapshot_tests as thin_snapshot
+import dmtest.dependency_tracker as dep
 import io
 import itertools
 import logging as log
@@ -28,6 +29,9 @@ class TreeFormatter:
         for old, new in itertools.zip_longest(
             self._previous, components, fillvalue=None
         ):
+            if not new:
+                break
+
             if old != new:
                 strs.append(self._indent * depth)
                 strs.append(new.ljust(50, " ") + "\n")
@@ -134,6 +138,9 @@ def cmd_log(tests, args, results: db.TestResults):
 
 
 def cmd_run(tests, args, results: db.TestResults):
+    test_dep_path = "./test_dependencies.toml"
+    test_deps = dep.read_test_deps(test_dep_path)
+
     result_set = get_result_set(args)
 
     # select tests
@@ -163,7 +170,11 @@ def cmd_run(tests, args, results: db.TestResults):
         missing_dep = None
         start = time.time()
         try:
-            tests.run(p, fix)
+            with dep.dep_tracker() as tracker:
+                tests.run(p, fix)
+                exes = tracker.executables
+                targets = tracker.targets
+                test_deps.set_deps(p, exes, targets)
 
         except test_register.MissingTestDep as e:
             missing_dep = e
@@ -187,6 +198,8 @@ def cmd_run(tests, args, results: db.TestResults):
         test_log = buffer.getvalue()
         result = db.TestResult(p, pass_str, test_log, result_set, elapsed)
         results.insert_test_result(result)
+
+    dep.write_test_deps(test_dep_path, test_deps)
 
 
 # -----------------------------------------

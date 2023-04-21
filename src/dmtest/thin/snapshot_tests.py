@@ -259,6 +259,15 @@ def t_stomp_origin(fix):
 
 def register(tests):
     tests.register_batch(
+        "/thin/snapshot",
+        [
+            ("space-use", t_space_use),
+            ("many-snapshots-of-same-volume", t_many_snapshots_of_same_volume),
+            ("parallel-io-to-shared-thins", t_parallel_io_to_shared_thins),
+            ("ref-count-tree", t_ref_count_tree),
+        ],
+    )
+    tests.register_batch(
         "/thin/snapshot/ext4",
         [
             ("overwrite", t_overwrite_ext4),
@@ -272,16 +281,6 @@ def register(tests):
             ("overwrite", t_overwrite_xfs),
             ("create-snap", t_create_snap_xfs),
             ("break-sharing", t_break_sharing_xfs),
-        ],
-    )
-
-    tests.register_batch(
-        "/thin/snapshot/",
-        [
-            ("space-use", t_space_use),
-            ("many-snapshots-of-same-volume", t_many_snapshots_of_same_volume),
-            ("parallel-io-to-shared-thins", t_parallel_io_to_shared_thins),
-            ("ref-count-tree", t_ref_count_tree),
         ],
     )
     tests.register_batch(
