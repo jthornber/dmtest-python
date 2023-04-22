@@ -33,8 +33,7 @@ class TreeFormatter:
                 break
 
             if old != new:
-                strs.append(self._indent * depth)
-                strs.append(new.ljust(50, " ") + "\n")
+                strs.append(f"{self._indent * depth}{new}".ljust(50, " ") + "\n")
             depth += 1
         self._previous = components
         return "".join(strs)[:-1]
