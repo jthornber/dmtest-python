@@ -2,6 +2,7 @@ import logging as log
 import re
 import subprocess
 import time
+import dmtest.dependency_tracker as dep
 
 from typing import List, NamedTuple
 
@@ -46,6 +47,8 @@ class BlkTrace:
         else:
             blktrace_cmd.extend(["-a", "queue"])
 
+        dep.add_exe("blktrace")
+        dep.add_exe("blkparse")
         log.info(f"starting blktrace: {blktrace_cmd}")
         self._blktrace = subprocess.Popen(
             blktrace_cmd,

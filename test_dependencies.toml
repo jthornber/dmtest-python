@@ -7,7 +7,7 @@ executables = [ "blockdev", "dd", "dmsetup", "echo", "mkfs.xfs", "mount", "umoun
 targets = [ "thin", "thin-pool",]
 
 ["/bufio/create"]
-executables = [ "blockdev", "dmsetup",]
+executables = [ "blockdev", "dmsetup", "modprobe",]
 targets = [ "bufio_test",]
 
 ["/bufio/empty-program"]
@@ -135,11 +135,11 @@ executables = [ "blockdev", "dd", "dmsetup",]
 targets = [ "thin-pool",]
 
 ["/thin/discard/blktrace"]
-executables = [ "blockdev", "dd", "dmsetup", "thin_dump",]
+executables = [ "blkparse", "blktrace", "blockdev", "dd", "dmsetup", "thin_dump",]
 targets = [ "thin", "thin-pool",]
 
 ["/thin/discard/unmaps-passdown-discardable"]
-executables = [ "blockdev", "dd", "dmsetup",]
+executables = [ "blkparse", "blktrace", "blockdev", "dd", "dmsetup",]
 targets = [ "thin", "thin-pool",]
 
 ["/thin/discard/xml-tests"]
