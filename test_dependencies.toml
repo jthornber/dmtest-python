@@ -185,3 +185,11 @@ targets = [ "thin", "thin-pool",]
 ["/thin/snapshot/xfs/overwrite"]
 executables = [ "blockdev", "dd", "dmsetup", "echo", "mkfs.xfs", "mount", "umount", "xfs_repair",]
 targets = [ "thin", "thin-pool",]
+
+["/thin/snapshot/many-snaps-with-changes"]
+executables = [ "blockdev", "dd", "dmsetup", "echo", "fsck.ext4", "git", "mkfs.ext4", "mount", "sync", "umount",]
+targets = [ "thin", "thin-pool",]
+
+["/thin/snapshot/try-and-create-duplicates"]
+executables = [ "blockdev", "dd", "dmsetup", "echo", "fsck.ext4", "git", "mkfs.ext4", "mount", "sync", "umount",]
+targets = [ "thin", "thin-pool",]

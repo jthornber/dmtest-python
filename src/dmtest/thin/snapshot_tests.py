@@ -3,6 +3,7 @@ from dmtest.thin.utils import standard_stack, standard_pool
 import dmtest.dataset as dataset
 import dmtest.device_mapper.dev as dmdev
 import dmtest.fs as fs
+import dmtest.git as git
 import dmtest.pool_stack as ps
 import dmtest.process as process
 import dmtest.thin.status as status
@@ -13,6 +14,7 @@ import dmtest.pattern_stomper as stomper
 
 import os
 import threading
+import logging as log
 
 
 def run_overwrite(fix, fs_type):
@@ -254,6 +256,37 @@ def t_stomp_origin(fix):
                 snap_stomper.verify(0, 1)
 
 
+def t_many_snaps_with_changes(fix):
+    fs_type = fs.Ext4
+
+    with standard_pool(fix) as pool:
+        with ps.new_thin(pool, units.gig(20), 0) as thin:
+            git.prepare(thin, fs_type)
+
+            def mk_snap_(index):
+                log.info("about to create snap")
+                with thin.pause():
+                    pool.message(0, f"create_snap {index + 1} 0")
+                log.info("done")
+
+            git.extract_each(thin, fs_type, mk_snap_)
+
+
+def t_try_and_create_duplicates(fix):
+    fs_type = fs.Ext4
+
+    with standard_pool(fix) as pool:
+        with ps.new_thin(pool, units.gig(20), 0) as thin:
+            git.prepare(thin, fs_type)
+
+            with ps.new_snap(pool, units.gig(20), 1, 0, thin) as snap:
+                git.extract(thin, fs_type, git.TAGS[10:11])
+                git.extract(thin, fs_type, git.TAGS[0:3])
+
+                git.extract(thin, fs_type, git.TAGS[20:21])
+                git.extract(snap, fs_type, git.TAGS[0:3])
+
+
 # ---------------------------------
 
 
@@ -265,6 +298,8 @@ def register(tests):
             ("many-snapshots-of-same-volume", t_many_snapshots_of_same_volume),
             ("parallel-io-to-shared-thins", t_parallel_io_to_shared_thins),
             ("ref-count-tree", t_ref_count_tree),
+            ("many-snaps-with-changes", t_many_snaps_with_changes),
+            ("try-and-create-duplicates", t_try_and_create_duplicates),
         ],
     )
     tests.register_batch(

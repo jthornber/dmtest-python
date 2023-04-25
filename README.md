@@ -11,6 +11,11 @@
 
 > ./dmtest health
 
+In addition many of the tests perform operations on a copy of
+linux git repository:
+
+> git clone https://github.com/torvalds/linux.git
+
 
 # Running
 
