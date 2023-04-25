@@ -279,13 +279,13 @@ def command_line_parser():
     parser = argparse.ArgumentParser(
         prog="dmtest", description="run device-mapper tests"
     )
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(title="command arguments", help="'{cmd} -h' for command specific options", metavar="command")
 
     result_sets_p = subparsers.add_parser("result-sets", help="list result sets")
     result_sets_p.set_defaults(func=cmd_result_sets)
 
     result_set_delete_p = subparsers.add_parser(
-        "result-set-delete", help="list result sets"
+        "result-set-delete", help="delete result set"
     )
     result_set_delete_p.set_defaults(func=cmd_result_set_delete)
     result_set_delete_p.add_argument("result_set", help="The result set to delete")
@@ -295,7 +295,7 @@ def command_line_parser():
     arg_filter(list_p)
     arg_result_set(list_p)
 
-    log_p = subparsers.add_parser("log", help="list tests")
+    log_p = subparsers.add_parser("log", help="list test logs")
     log_p.set_defaults(func=cmd_log)
     arg_filter(log_p)
     arg_result_set(log_p)
