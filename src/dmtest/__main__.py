@@ -207,7 +207,7 @@ def cmd_run(tests, args, results: db.TestResults):
 
 
 def which(executable):
-    (return_code, stdout, stderr) = process.run(f"which {executable}")
+    (return_code, stdout, stderr) = process.run(f"which {executable}", raise_on_fail=False)
     if return_code == 0:
         return stdout
     else:
