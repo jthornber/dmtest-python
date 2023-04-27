@@ -206,6 +206,9 @@ def cmd_run(tests, args, results: db.TestResults):
 # 'health' command
 
 
+def is_repo(path):
+    return os.path.isdir(os.path.join(path, ".git"))
+
 def which(executable):
     (return_code, stdout, stderr) = process.run(f"which {executable}", raise_on_fail=False)
     if return_code == 0:
@@ -238,6 +241,11 @@ def has_target(target):
 
 def cmd_health(tests, args, results):
     test_deps = dep.read_test_deps(test_dep_path)
+
+    print("Kernel Repo:\n")
+    repo = "linux"
+    found = "present" if os.path.isdir(os.path.join(repo, ".git")) else "missing"
+    print(f"{repo.ljust(40,'.')} {found}\n\n")
 
     print("Executables:\n")
     tools = test_deps.get_all_executables()
