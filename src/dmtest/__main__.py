@@ -15,6 +15,7 @@ import logging as log
 import os
 import sys
 import time
+from typing import Optional
 
 
 class TreeFormatter:
@@ -70,6 +71,19 @@ eg 'bufio-rewrite'.
     sys.exit(1)
 
 
+def matches_state(result: Optional[db.TestResult], state) -> bool:
+    if not state:
+        return True
+    if state[0] == "^":
+        invert = True
+        state = state[1:]
+    else:
+        invert = False
+    if not result:
+        return (state == '-') ^ invert
+    return (result.pass_fail == state) ^ invert
+
+
 # -----------------------------------------
 # 'result-sets' command
 
@@ -104,6 +118,8 @@ def cmd_list(tests, args, results: db.TestResults):
 
     for p in paths:
         result = results.get_test_result(p, result_set)
+        if not matches_state(result, args.state):
+            continue
         print(f"{formatter.tree_line(p)}", end="")
         if result:
             print(f"{result.pass_fail} [{result.duration:.2f}s]")
@@ -124,6 +140,8 @@ def cmd_log(tests, args, results: db.TestResults):
 
     for p in paths:
         result = results.get_test_result(p, result_set)
+        if not matches_state(result, args.state):
+            continue
         if result:
             if len(paths) > 1:
                 print(f"*** LOG FOR {p}, {len(result.log)} ***")
@@ -159,6 +177,9 @@ def cmd_run(tests, args, results: db.TestResults):
     )
 
     for p in paths:
+        result = results.get_test_result(p, result_set)
+        if not matches_state(result, args.state):
+            continue
         buffer.seek(0)
         buffer.truncate()
 
@@ -283,6 +304,15 @@ def arg_result_set(p):
     )
 
 
+def arg_state(p):
+    p.add_argument(
+        "--state",
+        metavar="[^]TEST_STATE",
+        type=str,
+        help="select tests whose result matches the given state. Use '^' to invert the selection",
+    )
+
+
 def command_line_parser():
     parser = argparse.ArgumentParser(
         prog="dmtest", description="run device-mapper tests"
@@ -301,16 +331,19 @@ def command_line_parser():
     list_p = subparsers.add_parser("list", help="list tests")
     list_p.set_defaults(func=cmd_list)
     arg_filter(list_p)
+    arg_state(list_p)
     arg_result_set(list_p)
 
     log_p = subparsers.add_parser("log", help="list test logs")
     log_p.set_defaults(func=cmd_log)
     arg_filter(log_p)
+    arg_state(log_p)
     arg_result_set(log_p)
 
     run_p = subparsers.add_parser("run", help="run tests")
     run_p.set_defaults(func=cmd_run)
     arg_filter(run_p)
+    arg_state(run_p)
     arg_result_set(run_p)
 
     health_p = subparsers.add_parser(
