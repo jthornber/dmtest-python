@@ -83,7 +83,7 @@ def cmd_result_sets(tests, args, results: db.TestResults):
 # 'result-set-delete' command
 
 
-def cmd_result_set_delete(tests, args, results: db.TestResult):
+def cmd_result_set_delete(tests, args, results: db.TestResults):
     try:
         results.delete_result_set(args.result_set)
     except db.NoSuchResultSet:
