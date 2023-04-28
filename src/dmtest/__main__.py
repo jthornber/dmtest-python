@@ -151,6 +151,40 @@ def cmd_log(tests, args, results: db.TestResults):
 
 
 # -----------------------------------------
+# 'compare' command
+
+def cmd_compare(tests, args, results: db.TestResults):
+    if not args.old_result_set:
+        print("Missing old result set.", file=sys.stderr)
+        sys.exit(1)
+    new_set = get_result_set(args)
+    paths = sorted(tests.paths(args.rx))
+    formatter = TreeFormatter()
+
+    if len(paths) == 0:
+        print("No matching tests found.")
+
+    for p in paths:
+        old_result = results.get_test_result(p, args.old_result_set)
+        new_result = results.get_test_result(p, new_set)
+        if not matches_state(old_result, args.state) or not matches_state(new_result, args.state):
+            continue
+        print(f"{formatter.tree_line(p)}", end="")
+        if old_result:
+            print(f"{old_result.pass_fail} => ", end="")
+        else:
+            print("- => ", end="")
+        if new_result:
+            print(f"{new_result.pass_fail} ", end="")
+        else:
+            print("- ", end="")
+        if old_result and new_result and old_result.pass_fail == new_result.pass_fail:
+            diff = new_result.duration - old_result.duration
+            print(f"[{diff * 100 / old_result.duration:+.0f}% {diff:+.2f}s]")
+        else:
+            print("")
+
+# -----------------------------------------
 # 'run' command
 
 test_dep_path = "./test_dependencies.toml"
@@ -345,6 +379,18 @@ def command_line_parser():
     arg_filter(run_p)
     arg_state(run_p)
     arg_result_set(run_p)
+
+    compare_p = subparsers.add_parser("compare", help="compare two result sets")
+    compare_p.set_defaults(func=cmd_compare)
+    arg_filter(compare_p)
+    arg_state(compare_p)
+    compare_p.add_argument(
+        "--old-result-set",
+        metavar="RESULT_SET",
+        type=str,
+        help="Old result set to compare against",
+    )
+    arg_result_set(compare_p)
 
     health_p = subparsers.add_parser(
         "health", help="check required tools are installed"
