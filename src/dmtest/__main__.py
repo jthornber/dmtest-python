@@ -15,6 +15,7 @@ import logging as log
 import os
 import sys
 import time
+from typing import Optional
 
 
 class TreeFormatter:
@@ -70,6 +71,19 @@ eg 'bufio-rewrite'.
     sys.exit(1)
 
 
+def matches_state(result: Optional[db.TestResult], state) -> bool:
+    if not state:
+        return True
+    if state[0] == "^":
+        invert = True
+        state = state[1:]
+    else:
+        invert = False
+    if not result:
+        return (state == '-') ^ invert
+    return (result.pass_fail == state) ^ invert
+
+
 # -----------------------------------------
 # 'result-sets' command
 
@@ -83,7 +97,7 @@ def cmd_result_sets(tests, args, results: db.TestResults):
 # 'result-set-delete' command
 
 
-def cmd_result_set_delete(tests, args, results: db.TestResult):
+def cmd_result_set_delete(tests, args, results: db.TestResults):
     try:
         results.delete_result_set(args.result_set)
     except db.NoSuchResultSet:
@@ -104,6 +118,8 @@ def cmd_list(tests, args, results: db.TestResults):
 
     for p in paths:
         result = results.get_test_result(p, result_set)
+        if not matches_state(result, args.state):
+            continue
         print(f"{formatter.tree_line(p)}", end="")
         if result:
             print(f"{result.pass_fail} [{result.duration:.2f}s]")
@@ -124,6 +140,8 @@ def cmd_log(tests, args, results: db.TestResults):
 
     for p in paths:
         result = results.get_test_result(p, result_set)
+        if not matches_state(result, args.state):
+            continue
         if result:
             if len(paths) > 1:
                 print(f"*** LOG FOR {p}, {len(result.log)} ***")
@@ -131,6 +149,40 @@ def cmd_log(tests, args, results: db.TestResults):
         else:
             print(f"*** NO LOG FOR {p}")
 
+
+# -----------------------------------------
+# 'compare' command
+
+def cmd_compare(tests, args, results: db.TestResults):
+    if not args.old_result_set:
+        print("Missing old result set.", file=sys.stderr)
+        sys.exit(1)
+    new_set = get_result_set(args)
+    paths = sorted(tests.paths(args.rx))
+    formatter = TreeFormatter()
+
+    if len(paths) == 0:
+        print("No matching tests found.")
+
+    for p in paths:
+        old_result = results.get_test_result(p, args.old_result_set)
+        new_result = results.get_test_result(p, new_set)
+        if not matches_state(old_result, args.state) or not matches_state(new_result, args.state):
+            continue
+        print(f"{formatter.tree_line(p)}", end="")
+        if old_result:
+            print(f"{old_result.pass_fail} => ", end="")
+        else:
+            print("- => ", end="")
+        if new_result:
+            print(f"{new_result.pass_fail} ", end="")
+        else:
+            print("- ", end="")
+        if old_result and new_result and old_result.pass_fail == new_result.pass_fail:
+            diff = new_result.duration - old_result.duration
+            print(f"[{diff * 100 / old_result.duration:+.0f}% {diff:+.2f}s]")
+        else:
+            print("")
 
 # -----------------------------------------
 # 'run' command
@@ -159,6 +211,9 @@ def cmd_run(tests, args, results: db.TestResults):
     )
 
     for p in paths:
+        result = results.get_test_result(p, result_set)
+        if not matches_state(result, args.state):
+            continue
         buffer.seek(0)
         buffer.truncate()
 
@@ -206,8 +261,11 @@ def cmd_run(tests, args, results: db.TestResults):
 # 'health' command
 
 
+def is_repo(path):
+    return os.path.isdir(os.path.join(path, ".git"))
+
 def which(executable):
-    (return_code, stdout, stderr) = process.run(f"which {executable}")
+    (return_code, stdout, stderr) = process.run(f"which {executable}", raise_on_fail=False)
     if return_code == 0:
         return stdout
     else:
@@ -238,6 +296,11 @@ def has_target(target):
 
 def cmd_health(tests, args, results):
     test_deps = dep.read_test_deps(test_dep_path)
+
+    print("Kernel Repo:\n")
+    repo = "linux"
+    found = "present" if os.path.isdir(os.path.join(repo, ".git")) else "missing"
+    print(f"{repo.ljust(40,'.')} {found}\n\n")
 
     print("Executables:\n")
     tools = test_deps.get_all_executables()
@@ -275,6 +338,15 @@ def arg_result_set(p):
     )
 
 
+def arg_state(p):
+    p.add_argument(
+        "--state",
+        metavar="[^]TEST_STATE",
+        type=str,
+        help="select tests whose result matches the given state. Use '^' to invert the selection",
+    )
+
+
 def command_line_parser():
     parser = argparse.ArgumentParser(
         prog="dmtest", description="run device-mapper tests"
@@ -293,17 +365,32 @@ def command_line_parser():
     list_p = subparsers.add_parser("list", help="list tests")
     list_p.set_defaults(func=cmd_list)
     arg_filter(list_p)
+    arg_state(list_p)
     arg_result_set(list_p)
 
     log_p = subparsers.add_parser("log", help="list test logs")
     log_p.set_defaults(func=cmd_log)
     arg_filter(log_p)
+    arg_state(log_p)
     arg_result_set(log_p)
 
     run_p = subparsers.add_parser("run", help="run tests")
     run_p.set_defaults(func=cmd_run)
     arg_filter(run_p)
+    arg_state(run_p)
     arg_result_set(run_p)
+
+    compare_p = subparsers.add_parser("compare", help="compare two result sets")
+    compare_p.set_defaults(func=cmd_compare)
+    arg_filter(compare_p)
+    arg_state(compare_p)
+    compare_p.add_argument(
+        "--old-result-set",
+        metavar="RESULT_SET",
+        type=str,
+        help="Old result set to compare against",
+    )
+    arg_result_set(compare_p)
 
     health_p = subparsers.add_parser(
         "health", help="check required tools are installed"
