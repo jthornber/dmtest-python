@@ -80,7 +80,7 @@ def matches_state(result: Optional[db.TestResult], state) -> bool:
     else:
         invert = False
     if not result:
-        return (state == '-') ^ invert
+        return (state == "-") ^ invert
     return (result.pass_fail == state) ^ invert
 
 
@@ -153,6 +153,7 @@ def cmd_log(tests, args, results: db.TestResults):
 # -----------------------------------------
 # 'compare' command
 
+
 def cmd_compare(tests, args, results: db.TestResults):
     if not args.old_result_set:
         print("Missing old result set.", file=sys.stderr)
@@ -167,7 +168,9 @@ def cmd_compare(tests, args, results: db.TestResults):
     for p in paths:
         old_result = results.get_test_result(p, args.old_result_set)
         new_result = results.get_test_result(p, new_set)
-        if not matches_state(old_result, args.state) or not matches_state(new_result, args.state):
+        if not matches_state(old_result, args.state) or not matches_state(
+            new_result, args.state
+        ):
             continue
         print(f"{formatter.tree_line(p)}", end="")
         if old_result:
@@ -183,6 +186,7 @@ def cmd_compare(tests, args, results: db.TestResults):
             print(f"[{diff * 100 / old_result.duration:+.0f}% {diff:+.2f}s]")
         else:
             print("")
+
 
 # -----------------------------------------
 # 'run' command
@@ -264,8 +268,11 @@ def cmd_run(tests, args, results: db.TestResults):
 def is_repo(path):
     return os.path.isdir(os.path.join(path, ".git"))
 
+
 def which(executable):
-    (return_code, stdout, stderr) = process.run(f"which {executable}", raise_on_fail=False)
+    (return_code, stdout, stderr) = process.run(
+        f"which {executable}", raise_on_fail=False
+    )
     if return_code == 0:
         return stdout
     else:
@@ -299,7 +306,7 @@ def cmd_health(tests, args, results):
 
     print("Kernel Repo:\n")
     repo = "linux"
-    found = "present" if os.path.isdir(os.path.join(repo, ".git")) else "missing"
+    found = "present" if is_repo(repo) else "missing"
     print(f"{repo.ljust(40,'.')} {found}\n\n")
 
     print("Executables:\n")
@@ -351,7 +358,11 @@ def command_line_parser():
     parser = argparse.ArgumentParser(
         prog="dmtest", description="run device-mapper tests"
     )
-    subparsers = parser.add_subparsers(title="command arguments", help="'{cmd} -h' for command specific options", metavar="command")
+    subparsers = parser.add_subparsers(
+        title="command arguments",
+        help="'{cmd} -h' for command specific options",
+        metavar="command",
+    )
 
     result_sets_p = subparsers.add_parser("result-sets", help="list result sets")
     result_sets_p.set_defaults(func=cmd_result_sets)
