@@ -88,7 +88,7 @@ def matches_state(result: Optional[db.TestResult], state) -> bool:
 # 'result-sets' command
 
 
-def cmd_result_sets(tests, args, results: db.TestResults):
+def cmd_result_sets(tests: test_register.TestRegister, args, results: db.TestResults):
     for rs in results.get_result_sets():
         print(f"    {rs}")
 
@@ -97,7 +97,9 @@ def cmd_result_sets(tests, args, results: db.TestResults):
 # 'result-set-delete' command
 
 
-def cmd_result_set_delete(tests, args, results: db.TestResults):
+def cmd_result_set_delete(
+    tests: test_register.TestRegister, args, results: db.TestResults
+):
     try:
         results.delete_result_set(args.result_set)
     except db.NoSuchResultSet:
@@ -108,7 +110,7 @@ def cmd_result_set_delete(tests, args, results: db.TestResults):
 # 'list' command
 
 
-def cmd_list(tests, args, results: db.TestResults):
+def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
     result_set = get_result_set(args)
     paths = sorted(tests.paths(args.rx))
     formatter = TreeFormatter()
@@ -131,7 +133,7 @@ def cmd_list(tests, args, results: db.TestResults):
 # 'log' command
 
 
-def cmd_log(tests, args, results: db.TestResults):
+def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
     result_set = get_result_set(args)
     paths = sorted(tests.paths(args.rx))
 
@@ -154,7 +156,7 @@ def cmd_log(tests, args, results: db.TestResults):
 # 'compare' command
 
 
-def cmd_compare(tests, args, results: db.TestResults):
+def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults):
     if not args.old_result_set:
         print("Missing old result set.", file=sys.stderr)
         sys.exit(1)
@@ -194,7 +196,7 @@ def cmd_compare(tests, args, results: db.TestResults):
 test_dep_path = "./test_dependencies.toml"
 
 
-def cmd_run(tests, args, results: db.TestResults):
+def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
     test_deps = dep.read_test_deps(test_dep_path)
 
     result_set = get_result_set(args)
@@ -301,7 +303,7 @@ def has_target(target):
     return code == 0
 
 
-def cmd_health(tests, args, results):
+def cmd_health(tests: test_register.TestRegister, args, results):
     test_deps = dep.read_test_deps(test_dep_path)
 
     print("Kernel Repo:\n")
