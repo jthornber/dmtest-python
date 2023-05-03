@@ -9,6 +9,7 @@ import dmtest.thin.deletion_tests as thin_deletion
 import dmtest.thin.discard_tests as thin_discard
 import dmtest.thin.snapshot_tests as thin_snapshot
 import dmtest.dependency_tracker as dep
+import dmtest.test_filter as filter
 import io
 import itertools
 import logging as log
@@ -112,7 +113,8 @@ def cmd_result_set_delete(
 
 def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
     result_set = get_result_set(args)
-    paths = sorted(tests.paths(args.rx))
+    filter = build_filter(args)
+    paths = sorted(tests.paths(results, result_set, filter))
     formatter = TreeFormatter()
 
     if len(paths) == 0:
@@ -120,8 +122,6 @@ def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
 
     for p in paths:
         result = results.get_test_result(p, result_set)
-        if not matches_state(result, args.state):
-            continue
         print(f"{formatter.tree_line(p)}", end="")
         if result:
             print(f"{result.pass_fail} [{result.duration:.2f}s]")
@@ -135,7 +135,8 @@ def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
 
 def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
     result_set = get_result_set(args)
-    paths = sorted(tests.paths(args.rx))
+    filter = build_filter(args)
+    paths = sorted(tests.paths(results, result_set, filter))
 
     if len(paths) == 0:
         print("No matching tests found.")
@@ -161,7 +162,8 @@ def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults
         print("Missing old result set.", file=sys.stderr)
         sys.exit(1)
     new_set = get_result_set(args)
-    paths = sorted(tests.paths(args.rx))
+    filter = build_filter(args)
+    paths = sorted(tests.paths(results, new_set, filter))
     formatter = TreeFormatter()
 
     if len(paths) == 0:
@@ -202,7 +204,8 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
     result_set = get_result_set(args)
 
     # select tests
-    paths = sorted(tests.paths(args.rx))
+    filter = build_filter(args)
+    paths = sorted(tests.paths(results, result_set, filter))
     formatter = TreeFormatter()
 
     if len(paths) == 0:
@@ -291,7 +294,7 @@ targets_to_kmodules = {
 
 def has_target(target):
     # It may already be loaded or compiled in
-    (_, stdout, stderr) = process.run(f"dmsetup targets")
+    (_, stdout, stderr) = process.run("dmsetup targets")
     if target in stdout:
         return True
 
@@ -333,9 +336,48 @@ def arg_filter(p):
         "--rx",
         metavar="PATTERN",
         type=str,
-        nargs="*",
-        help="select tests that match the given pattern",
+        help="select tests that match the given regular expression",
+        action="append",
     )
+    p.add_argument(
+        "substring",
+        type=str,
+        nargs="*",
+        help="substring to filter tests",
+    )
+    p.add_argument(
+        "--state",
+        metavar="[^]TEST_STATE",
+        type=str,
+        help="select tests whose result matches the given state. Use '^' to invert the selection",
+        action="append",
+    )
+    p.add_argument(
+        "--and-filters",
+        help="Select tests that match _all_ filters",
+        action="store_true",
+    )
+
+
+def build_filter(args):
+    if args.and_filters:
+        top_filter = filter.AndFilter()
+    else:
+        top_filter = filter.OrFilter()
+
+    for pat in args.rx or []:
+        top_filter.add_sub_filter(filter.RegexFilter(pat))
+
+    for ss in args.substring or []:
+        top_filter.add_sub_filter(filter.SubstringFilter(ss))
+
+    for s in args.state or []:
+        if len(s) >= 1 and s.startswith("^"):
+            top_filter.add_sub_filter(filter.NotFilter(filter.StateFilter(s[1:])))
+        else:
+            top_filter.add_sub_filter(filter.StateFilter(s))
+
+    return top_filter
 
 
 def arg_result_set(p):
@@ -344,15 +386,6 @@ def arg_result_set(p):
         metavar="RESULT_SET",
         type=str,
         help="Specify a nickname for the kernel you are testing",
-    )
-
-
-def arg_state(p):
-    p.add_argument(
-        "--state",
-        metavar="[^]TEST_STATE",
-        type=str,
-        help="select tests whose result matches the given state. Use '^' to invert the selection",
     )
 
 
@@ -378,25 +411,21 @@ def command_line_parser():
     list_p = subparsers.add_parser("list", help="list tests")
     list_p.set_defaults(func=cmd_list)
     arg_filter(list_p)
-    arg_state(list_p)
     arg_result_set(list_p)
 
     log_p = subparsers.add_parser("log", help="list test logs")
     log_p.set_defaults(func=cmd_log)
     arg_filter(log_p)
-    arg_state(log_p)
     arg_result_set(log_p)
 
     run_p = subparsers.add_parser("run", help="run tests")
     run_p.set_defaults(func=cmd_run)
     arg_filter(run_p)
-    arg_state(run_p)
     arg_result_set(run_p)
 
     compare_p = subparsers.add_parser("compare", help="compare two result sets")
     compare_p.set_defaults(func=cmd_compare)
     arg_filter(compare_p)
-    arg_state(compare_p)
     compare_p.add_argument(
         "--old-result-set",
         metavar="RESULT_SET",

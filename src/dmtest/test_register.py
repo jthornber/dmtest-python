@@ -21,10 +21,6 @@ def _build_predicate_regex(pats):
     return predicate
 
 
-def always_true(_):
-    return True
-
-
 class MissingTestDep(Exception):
     pass
 
@@ -51,14 +47,15 @@ class TestRegister:
         for path, callback in pairs:
             self.register(prefix + path.lstrip("/"), callback, dep_fn=dep_fn)
 
-    def paths(self, patterns=None):
-        if patterns:
-            pred = _build_predicate_regex(patterns)
-        else:
-            pred = always_true
+    def paths(self, results, result_set, filt=None):
+        selected = []
 
-        # return filter(pred, self._tests.keys())
-        return filter(pred, self._tests.keys())
+        for t in self._tests.keys():
+            result = results.get_test_result(t, result_set)
+            if filt.matches(t, result):
+                selected.append(t)
+
+        return selected
 
     def run(self, path, fix):
         t = self._tests[path]
