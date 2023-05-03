@@ -61,21 +61,29 @@ class BlkTrace:
         blkparse_cmd = ["blkparse", "-f", '"%a %d %S %N %c\n"', "-i", "-"]
         log.info(f"starting blkparse: {blkparse_cmd}")
 
-        self._blkparse = subprocess.Popen(
-            blkparse_cmd,
-            stdin=self._blktrace.stdout,
-            stdout=subprocess.PIPE,
-            universal_newlines=True
-        )
+        try:
+            self._blkparse = subprocess.Popen(
+                blkparse_cmd,
+                stdin=self._blktrace.stdout,
+                stdout=subprocess.PIPE,
+                universal_newlines=True
+            )
+        except Exception:
+            self.stop_blktrace()
+            raise
+
+
+    def stop_blktrace(self):
+        self._blktrace.stdout.close()
+        self._blktrace.terminate()
+        self._blktrace.wait()
 
     def __enter__(self):
         time.sleep(1)  # why do we need this?  udev again?
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self._blktrace.stdout.close()
-        self._blktrace.terminate()
-        self._blktrace.wait()
+        self.stop_blktrace()
         log.info("completed blktrace")
 
         stdout, _ = self._blkparse.communicate()
