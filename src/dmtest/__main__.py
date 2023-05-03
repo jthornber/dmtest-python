@@ -240,6 +240,12 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
         except Exception as e:
             passed = False
             log.error(f"Exception caught: {e}")
+            while e.__cause__ or e.__context__:
+                if e.__cause__:
+                    e = e.__cause__
+                else:
+                    e = e.__context__
+                log.error(f"Triggered while handling Exception: {e}")
         elapsed = time.time() - start
 
         pass_str = None
