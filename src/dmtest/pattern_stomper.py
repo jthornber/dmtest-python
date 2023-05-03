@@ -78,7 +78,12 @@ class PatternStomper:
 
     def fork(self, new_dev: str) -> "PatternStomper":
         s2 = PatternStomper(new_dev, self.block_size, need_zero=False)
-        s2.deltas = self.deltas.copy()
+
+        if s2.max_blocks < self.max_blocks:
+            s2.deltas = [d.trim(s2.max_blocks) for d in self.deltas.copy()]
+        else:
+            s2.deltas = self.deltas.copy()
+
         return s2
 
     def stamp(self, percent: int):

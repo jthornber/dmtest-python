@@ -18,8 +18,8 @@ class PoolStack:
         self._low_water_mark = opts.pop("low_water_mark", 0)
         self._format = opts.pop("format", True)
 
-        if opts:
-            raise TypeError(f"Unsupported optsions {list(opts)}")
+        # if opts:
+        # raise TypeError(f"Unsupported options {opts}")
 
         if self._format:
             utils.wipe_device(self._metadata_dev, 8)

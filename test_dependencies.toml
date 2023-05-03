@@ -193,3 +193,19 @@ targets = [ "thin", "thin-pool",]
 ["/thin/snapshot/try-and-create-duplicates"]
 executables = [ "blockdev", "dd", "dmsetup", "echo", "fsck.ext4", "git", "mkfs.ext4", "mount", "sync", "umount",]
 targets = [ "thin", "thin-pool",]
+
+["/thin/external-origin/snap-bigger-than-origin"]
+executables = [ "blockdev", "dd", "dmsetup",]
+targets = [ "linear", "thin", "thin-pool",]
+
+["/thin/external-origin/snap-equal-size"]
+executables = [ "blockdev", "dd", "dmsetup",]
+targets = [ "linear", "thin", "thin-pool",]
+
+["/thin/external-origin/snap-fractional-tail-block"]
+executables = [ "blockdev", "dd", "dmsetup",]
+targets = [ "linear", "thin", "thin-pool",]
+
+["/thin/external-origin/snap-smaller-than-origin"]
+executables = [ "blockdev", "dd", "dmsetup",]
+targets = [ "linear", "thin", "thin-pool",]

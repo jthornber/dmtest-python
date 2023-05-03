@@ -8,6 +8,7 @@ import dmtest.thin.creation_tests as thin_creation
 import dmtest.thin.deletion_tests as thin_deletion
 import dmtest.thin.discard_tests as thin_discard
 import dmtest.thin.snapshot_tests as thin_snapshot
+import dmtest.thin.external_origin_tests as thin_external_origin
 import dmtest.dependency_tracker as dep
 import dmtest.test_filter as filter
 import io
@@ -72,19 +73,6 @@ eg 'bufio-rewrite'.
     sys.exit(1)
 
 
-def matches_state(result: Optional[db.TestResult], state) -> bool:
-    if not state:
-        return True
-    if state[0] == "^":
-        invert = True
-        state = state[1:]
-    else:
-        invert = False
-    if not result:
-        return (state == "-") ^ invert
-    return (result.pass_fail == state) ^ invert
-
-
 # -----------------------------------------
 # 'result-sets' command
 
@@ -143,8 +131,6 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
 
     for p in paths:
         result = results.get_test_result(p, result_set)
-        if not matches_state(result, args.state):
-            continue
         if result:
             if len(paths) > 1:
                 print(f"*** LOG FOR {p}, {len(result.log)} ***")
@@ -172,10 +158,6 @@ def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults
     for p in paths:
         old_result = results.get_test_result(p, args.old_result_set)
         new_result = results.get_test_result(p, new_set)
-        if not matches_state(old_result, args.state) or not matches_state(
-            new_result, args.state
-        ):
-            continue
         print(f"{formatter.tree_line(p)}", end="")
         if old_result:
             print(f"{old_result.pass_fail} => ", end="")
@@ -235,8 +217,6 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
     for p in paths:
         result = results.get_test_result(p, result_set)
-        if not matches_state(result, args.state):
-            continue
         buffer.seek(0)
         buffer.truncate()
 
@@ -478,6 +458,7 @@ def main():
     thin_deletion.register(tests)
     thin_discard.register(tests)
     thin_snapshot.register(tests)
+    thin_external_origin.register(tests)
     bufio.register(tests)
 
     try:
