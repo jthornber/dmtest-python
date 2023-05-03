@@ -198,6 +198,16 @@ def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults
 test_dep_path = "./test_dependencies.toml"
 
 
+# Used to implement the --log switch
+class StringIOWithStderr(io.StringIO):
+    def write(self, s):
+        # Write to StringIO buffer
+        super().write(s)
+
+        # Also write to stdout
+        sys.stderr.write(s)
+
+
 def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
     test_deps = dep.read_test_deps(test_dep_path)
 
@@ -212,7 +222,11 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
         print("No matching tests found.")
 
     # Set up the logging
-    buffer = io.StringIO()
+    if args.log:
+        buffer = StringIOWithStderr()
+    else:
+        buffer = io.StringIO()
+
     log.basicConfig(
         level=log.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
@@ -422,6 +436,11 @@ def command_line_parser():
     run_p.set_defaults(func=cmd_run)
     arg_filter(run_p)
     arg_result_set(run_p)
+    run_p.add_argument(
+        "--log",
+        help="Print the log to stdout",
+        action="store_true",
+    )
 
     compare_p = subparsers.add_parser("compare", help="compare two result sets")
     compare_p.set_defaults(func=cmd_compare)
