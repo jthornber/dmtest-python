@@ -62,7 +62,10 @@ class BlkTrace:
         log.info(f"starting blkparse: {blkparse_cmd}")
 
         self._blkparse = subprocess.Popen(
-            blkparse_cmd, stdin=self._blktrace.stdout, stdout=subprocess.PIPE, text=True
+            blkparse_cmd,
+            stdin=self._blktrace.stdout,
+            stdout=subprocess.PIPE,
+            universal_newlines=True
         )
 
     def __enter__(self):
