@@ -30,7 +30,7 @@ class StateFilter(TestFilter):
 
     def matches(self, test_name, result):
         if not result:
-            return False
+            return self.state == "-"
         return result.pass_fail.lower() == self.state
 
 
