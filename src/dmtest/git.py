@@ -45,11 +45,9 @@ def prepare_(dev, fs_type, format_opts=None):
         format_opts = {}
 
     linux_fs = fs_type(dev)
-    print("formatting ...", file=sys.stderr)
     linux_fs.format(**format_opts)
 
     with linux_fs.mount_and_chdir("./kernel_builds", discard=False):
-        print("getting repo ...", file=sys.stderr)
         return Git.clone("../linux", "linux")
 
 
@@ -74,8 +72,6 @@ def extract(dev, fs_type, tags=None):
 
         with utils.timed("extract all versions"):
             for tag in tags:
-                print(f"Checking out {tag} ...", file=sys.stderr)
-
                 with utils.timed(f"checking out {tag}"):
                     repo.checkout(tag)
                     process.run("sync")
