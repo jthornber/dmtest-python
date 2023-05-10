@@ -4,6 +4,7 @@ import dmtest.db as db
 import dmtest.fixture
 import dmtest.process as process
 import dmtest.test_register as test_register
+import dmtest.blk_archive.rolling_snaps as blk_archive
 import dmtest.thin.creation_tests as thin_creation
 import dmtest.thin.deletion_tests as thin_deletion
 import dmtest.thin.discard_tests as thin_discard
@@ -460,6 +461,7 @@ def main():
         sys.exit(0)
 
     tests = test_register.TestRegister()
+    blk_archive.register(tests)
     thin_creation.register(tests)
     thin_deletion.register(tests)
     thin_discard.register(tests)

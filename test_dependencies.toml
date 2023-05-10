@@ -209,3 +209,7 @@ targets = [ "linear", "thin", "thin-pool",]
 ["/thin/external-origin/snap-smaller-than-origin"]
 executables = [ "blockdev", "dd", "dmsetup",]
 targets = [ "linear", "thin", "thin-pool",]
+
+["/blk-archive/rolling-snaps"]
+executables = [ "blk-archive", "blockdev", "dd", "dmsetup", "echo", "fsck.ext4", "git", "mkfs.ext4", "mount", "rm", "umount",]
+targets = [ "thin", "thin-pool",]
