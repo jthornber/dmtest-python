@@ -33,7 +33,7 @@ class BlkArchive:
         return process.run(f"blk-archive -j dump-stream -a {self.dir} -s {stream}")
 
     def pack_delta(self, old, old_id, new):
-        stdout = process.run(f"blk-archive pack -a {self.dir} {new} --delta-stream {old_id} --delta-device {old}")[1]
+        stdout = process.run(f"blk-archive -j pack -a {self.dir} {new} --delta-stream {old_id} --delta-device {old}")[1]
         result = json.loads(stdout)
         return result["stream_id"]
 
