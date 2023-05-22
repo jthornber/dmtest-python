@@ -18,6 +18,7 @@ import logging as log
 import os
 import sys
 import time
+import traceback
 from typing import Optional
 
 
@@ -240,7 +241,10 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
         except Exception as e:
             passed = False
-            log.error(f"Exception caught: {e}")
+            if bool(os.getenv("DM_TEST_PY_VERBOSE_TB", False)):
+                log.error(f"Exception caught: \n{traceback.format_exc()}\n")
+            else:
+                log.error(f"Exception caught: {e}")
             while e.__cause__ or e.__context__:
                 if e.__cause__:
                     e = e.__cause__
