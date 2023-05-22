@@ -6,9 +6,9 @@ import os
 
 
 class BaseFS:
-    def __init__(self, dev):
+    def __init__(self, dev, mount_point=None):
         self._dev = dev
-        self._mount_point = None
+        self._mount_point = mount_point
 
     def format(self, **opts):
         cmd = self.mkfs_cmd(opts)
