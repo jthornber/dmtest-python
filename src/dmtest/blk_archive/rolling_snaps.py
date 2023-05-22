@@ -30,6 +30,10 @@ def t_rolling_snaps(fix):
     archive = BlkArchive(archive_dir)
 
     ids = [0]
+
+    kernel_source = os.getenv("DM_TEST_KERNEL_SOURCE", "../linux")
+
+    log.info(f"using {kernel_source} as linux kernel directory")
     
     with standard_pool(fix) as pool:
         with ps.new_thin(pool, thin_size, 0) as thin:
@@ -37,7 +41,7 @@ def t_rolling_snaps(fix):
             linux_fs.format()
 
             with linux_fs.mount_and_chdir("./kernel_builds", discard=False):
-                repo = git.Git.clone("../linux", "linux")
+                repo = git.Git.clone(kernel_source, "linux")
                 repo.checkout(git.TAGS[0])
 
                 index = 1
