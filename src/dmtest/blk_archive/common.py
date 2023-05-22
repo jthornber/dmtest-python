@@ -46,14 +46,17 @@ class BlkArchive:
         )
 
     def get_stream_id(self, dev_or_file):
-        if type(dev_or_file) is not str:
-            name = os.path.basename(dev_or_file.path)
-        else:
+        if isinstance(dev_or_file, str):
             name = os.path.basename(dev_or_file)
-        (code, stdout, stderr) = process.run(f"blk-archive list -a {self.dir}")
-        grep_output = [line for line in stdout.split("\n") if name in line]
-        if len(grep_output) != 1:
+        else:
+            name = os.path.basename(dev_or_file.path)
+        (code, stdout, stderr) = process.run(f"blk-archive -j list -a {self.dir}")
+        result = json.loads(stdout)
+
+        item = next((i for i in result if i["source"] == name), None)
+        if item is None:
             raise ValueError(f"couldn't find stream for {name}")
+        return item["stream_id"]
 
 
 @contextmanager
