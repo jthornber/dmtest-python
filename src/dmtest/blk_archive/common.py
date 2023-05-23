@@ -111,13 +111,23 @@ POOL_SIZE_MB = 8000
 BASIC_BLOCK_SIZE_MB = 400
 
 
+def inc_repeating_str(str_len):
+    d = f"{'0' * 16}{'1' * 16}{'2' * 16}{'3' * 16}{'4' * 16}" \
+        f"{'5' * 16}{'6' * 16}{'7' * 16}{'8' * 16}{'9' * 16}" \
+        f"{'A' * 16}{'B' * 16}{'C' * 16}{'D' * 16}{'E' * 16}{'F' * 16}"
+    repeated_str = ''.join([d for _ in range(str_len // len(d))])
+    remaining_len = str_len % len(d)
+    partial = d[:remaining_len]
+    return f"{repeated_str}{partial}"
+
+
 def rs(str_len):
     return ''.join(random.choice(string.ascii_letters) for _ in range(str_len))
 
 
 BLOCK_SIZE = 512
 MAX_FILE_SIZE = 1024*1024*8
-DUPLICATE_DATA = rs(MAX_FILE_SIZE)
+DUPLICATE_DATA = inc_repeating_str(MAX_FILE_SIZE)
 
 
 def _round_to_block_size(size):
