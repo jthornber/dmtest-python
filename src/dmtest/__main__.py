@@ -242,7 +242,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
         except Exception as e:
             passed = False
-            if bool(os.getenv("DM_TEST_PY_VERBOSE_TB", False)):
+            if bool(os.getenv("DMTEST_PY_VERBOSE_TB", False)):
                 log.error(f"Exception caught: \n{traceback.format_exc()}\n")
             else:
                 log.error(f"Exception caught: {e}")
@@ -316,7 +316,7 @@ def cmd_health(tests: test_register.TestRegister, args, results):
     test_deps = dep.read_test_deps(test_dep_path)
 
     print("Kernel Repo:\n")
-    repo = "linux"
+    repo = os.getenv("DMTEST_KERNEL_SOURCE", "linux")
     found = "present" if is_repo(repo) else "missing"
     print(f"{repo.ljust(40,'.')} {found}\n\n")
 
