@@ -1,4 +1,5 @@
 import logging as log
+import os
 import subprocess
 import dmtest.dependency_tracker as dep
 
@@ -10,8 +11,14 @@ def run(command, raise_on_fail=True):
     exe = command.lstrip().split()[0]
     dep.add_exe(exe)
 
+    # ensure we get some good debug for tools written in rust
+    # if they panic
+    bt_env = os.environ.copy()
+    bt_env["RUST_BACKTRACE"] = "full"
+
     proc = subprocess.Popen(
         command,
+        env=bt_env,
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

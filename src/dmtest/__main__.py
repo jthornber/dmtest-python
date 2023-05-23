@@ -5,6 +5,7 @@ import dmtest.fixture
 import dmtest.process as process
 import dmtest.test_register as test_register
 import dmtest.blk_archive.rolling_snaps as blk_archive
+import dmtest.blk_archive.unit as blk_archive_unit
 import dmtest.thin.creation_tests as thin_creation
 import dmtest.thin.deletion_tests as thin_deletion
 import dmtest.thin.discard_tests as thin_discard
@@ -18,6 +19,7 @@ import logging as log
 import os
 import sys
 import time
+import traceback
 from typing import Optional
 
 
@@ -240,7 +242,10 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
         except Exception as e:
             passed = False
-            log.error(f"Exception caught: {e}")
+            if bool(os.getenv("DM_TEST_PY_VERBOSE_TB", False)):
+                log.error(f"Exception caught: \n{traceback.format_exc()}\n")
+            else:
+                log.error(f"Exception caught: {e}")
             while e.__cause__ or e.__context__:
                 if e.__cause__:
                     e = e.__cause__
@@ -462,6 +467,7 @@ def main():
 
     tests = test_register.TestRegister()
     blk_archive.register(tests)
+    blk_archive_unit.register(tests)
     thin_creation.register(tests)
     thin_deletion.register(tests)
     thin_discard.register(tests)

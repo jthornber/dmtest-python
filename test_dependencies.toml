@@ -213,3 +213,11 @@ targets = [ "linear", "thin", "thin-pool",]
 ["/blk-archive/rolling-snaps"]
 executables = [ "blk-archive", "blockdev", "dd", "dmsetup", "echo", "fsck.ext4", "git", "mkfs.ext4", "mount", "rm", "umount",]
 targets = [ "thin", "thin-pool",]
+
+["/blk-archive/unit/hello"]
+executables = [ "blockdev", "dd", "dmsetup",]
+targets = [ "thin", "thin-pool",]
+
+["/blk-archive/unit/combinations"]
+executables = [ "blk-archive", "blockdev", "cmp", "dd", "dmsetup", "echo", "losetup", "mkfs.xfs", "mount", "umount", "xfs_repair",]
+targets = [ "linear", "thin", "thin-pool",]

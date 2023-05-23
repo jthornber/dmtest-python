@@ -65,6 +65,12 @@ class Dev:
         output = dm.status(self._name, "-v")
         dm.extract_event_nr(output)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _type, _value, _traceback):
+        self.remove()
+
     @contextmanager
     def pause(dev, noflush=False):
         try:
@@ -81,7 +87,6 @@ def random_name():
     return f"test-dev-{random.randint(0, 1000000)}"
 
 
-@contextmanager
 def dev(table, read_only=False):
     """
     A context manager for creating, using, and automatically cleaning up a device-mapper device.
@@ -89,6 +94,9 @@ def dev(table, read_only=False):
     This context manager creates a device-mapper device with the specified table and
     read-only status, activates it, and yields the device. Once the context is exited,
     it automatically removes the device.
+
+    Note: context manager functionality has been moved to class Dev to allow users to call this function without
+    requiring the "with" usage.
 
     Args:
         table (str): The device-mapper table string to be used for creating the device.
@@ -107,9 +115,10 @@ def dev(table, read_only=False):
         else:
             dev.load(table)
         dev.resume()
-        yield dev
-    finally:
+    except Exception as e:
         dev.remove()
+        raise e
+    return dev
 
 
 class DeviceCleanupError(Exception):
