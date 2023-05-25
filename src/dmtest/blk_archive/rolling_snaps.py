@@ -31,7 +31,7 @@ def t_rolling_snaps(fix):
 
     ids = [0]
 
-    kernel_source = os.getenv("DM_TEST_KERNEL_SOURCE", "../linux")
+    kernel_source = os.getenv("DMTEST_KERNEL_SOURCE", "../linux")
 
     log.info(f"using {kernel_source} as linux kernel directory")
     

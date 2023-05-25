@@ -2,11 +2,13 @@ import dmtest.fs as fs
 import dmtest.process as process
 import dmtest.utils as utils
 
+import os
 import sys
 from pathlib import Path
 from contextlib import contextmanager
 
 # --------------------------------
+kernel_source = os.getenv("DMTEST_KERNEL_SOURCE", "../linux")
 
 
 class Git:
@@ -48,7 +50,7 @@ def prepare_(dev, fs_type, format_opts=None):
     linux_fs.format(**format_opts)
 
     with linux_fs.mount_and_chdir("./kernel_builds", discard=False):
-        return Git.clone("../linux", "linux")
+        return Git.clone(kernel_source, "linux")
 
 
 def prepare(dev, fs_type):
