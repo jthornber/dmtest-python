@@ -7,6 +7,7 @@ class TestResult(NamedTuple):
     test_name: str
     pass_fail: str
     log: str
+    dmesg: str
     result_set: str
     duration: float
 
@@ -58,6 +59,7 @@ class TestResults:
             test_name_id INTEGER,
             pass_fail TEXT,
             log BLOB,
+            dmesg BLOB,
             result_set_id INTEGER,
             duration REAL,
             FOREIGN KEY (result_set_id) REFERENCES result_sets (result_set_id)
@@ -130,12 +132,14 @@ class TestResults:
                 pass
 
         compressed_log = zlib.compress(result.log.encode("utf-8"))
+        compressed_dmesg = zlib.compress(result.dmesg.encode("utf-8"))
         cursor.execute(
-            "INSERT INTO test_results (test_name_id, pass_fail, log, result_set_id, duration) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO test_results (test_name_id, pass_fail, log, dmesg, result_set_id, duration) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 test_name_id,
                 result.pass_fail,
                 compressed_log,
+                compressed_dmesg,
                 result_set_id,
                 result.duration,
             ),
@@ -152,7 +156,7 @@ class TestResults:
         cursor = self._conn.cursor()
         cursor.execute(
             """
-            SELECT test_names.test_name, test_results.pass_fail, test_results.log, result_sets.result_set, test_results.duration
+            SELECT test_names.test_name, test_results.pass_fail, test_results.log, test_results.dmesg, result_sets.result_set, test_results.duration
             FROM test_results
             JOIN test_names ON test_results.test_name_id = test_names.test_name_id
             JOIN result_sets ON test_results.result_set_id = result_sets.result_set_id
@@ -167,12 +171,14 @@ class TestResults:
             return None
 
         log = zlib.decompress(row[2]).decode("utf-8")
+        dmesg = zlib.decompress(row[3]).decode("utf-8")
         test_result = TestResult(
             test_name=row[0],
             pass_fail=row[1],
             log=log,
-            result_set=row[3],
-            duration=row[4],
+            dmesg=dmesg,
+            result_set=row[4],
+            duration=row[5],
         )
 
         return test_result

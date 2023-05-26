@@ -20,6 +20,7 @@ import os
 import sys
 import time
 import traceback
+import subprocess
 from typing import Optional
 
 
@@ -138,6 +139,9 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
             if len(paths) > 1:
                 print(f"*** LOG FOR {p}, {len(result.log)} ***")
             print(result.log)
+            if args.with_dmesg:
+                print("*** KERNEL LOG ***")
+                print(result.dmesg)
         else:
             print(f"*** NO LOG FOR {p}")
 
@@ -265,8 +269,22 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
             print("FAIL")
             pass_str = "FAIL"
 
+        start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
+        start_str += str(start % 1)[1:]
+        dmesg_cmd = ["journalctl", "--dmesg", "--since", start_str]
+        try:
+            dmesg_log = subprocess.run(
+                dmesg_cmd,
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+                check=True
+            ).stdout
+        except subprocess.CalledProcessError as e:
+            log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
+            dmesg_log = ""
+
         test_log = buffer.getvalue()
-        result = db.TestResult(p, pass_str, test_log, result_set, elapsed)
+        result = db.TestResult(p, pass_str, test_log, dmesg_log, result_set, elapsed)
         results.insert_test_result(result)
 
     dep.write_test_deps(test_dep_path, test_deps)
@@ -423,6 +441,11 @@ def command_line_parser():
     log_p.set_defaults(func=cmd_log)
     arg_filter(log_p)
     arg_result_set(log_p)
+    log_p.add_argument(
+        "--with-dmesg",
+        help="Print the kernel log as well",
+        action="store_true",
+    )
 
     run_p = subparsers.add_parser("run", help="run tests")
     run_p.set_defaults(func=cmd_run)
