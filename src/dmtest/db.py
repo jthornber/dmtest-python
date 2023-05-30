@@ -113,7 +113,7 @@ class TestResults:
         return row[0]
 
     # Function to insert a test result
-    def insert_test_result(self, result):
+    def insert_test_result(self, result: TestResult, with_delete: bool):
         self.insert_test_name(result.test_name)
         test_name_id = self.get_test_name_id(result.test_name)
 
@@ -121,15 +121,11 @@ class TestResults:
         result_set_id = self.get_result_set_id(result.result_set)
 
         cursor = self._conn.cursor()
-        if test_name_id and result_set_id:
-            try:
-                # We don't care if this fails
-                cursor.execute(
-                    "DELETE FROM test_results WHERE test_name_id = ? AND result_set_id = ?",
-                    (test_name_id, result_set_id),
-                )
-            finally:
-                pass
+        if with_delete:
+            cursor.execute(
+                "DELETE FROM test_results WHERE test_name_id = ? AND result_set_id = ?",
+                (test_name_id, result_set_id),
+            )
 
         compressed_log = zlib.compress(result.log.encode("utf-8"))
         compressed_dmesg = zlib.compress(result.dmesg.encode("utf-8"))

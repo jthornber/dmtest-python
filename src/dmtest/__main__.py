@@ -284,7 +284,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
         test_log = buffer.getvalue()
         result = db.TestResult(p, pass_str, test_log, dmesg_log, result_set, elapsed)
-        results.insert_test_result(result)
+        results.insert_test_result(result, with_delete=True)
 
     dep.write_test_deps(test_dep_path, test_deps)
 
