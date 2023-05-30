@@ -223,7 +223,6 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
     )
 
     for p in paths:
-        result = results.get_test_result(p, result_set)
         buffer.seek(0)
         buffer.truncate()
 
