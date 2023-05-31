@@ -145,7 +145,7 @@ class TestResults:
         )
         self._conn.commit()
 
-    def get_test_result(self, test_name: str, result_set: str, run_nr: Optional[int] = None) -> Optional[TestResult]:
+    def get_test_results(self, test_name: str, result_set: str, run_nr: Optional[int] = None) -> List[TestResult]:
         test_name_id = self.get_test_name_id(test_name)
         result_set_id = self.get_result_set_id(result_set)
         sql_cmd = """
@@ -158,7 +158,7 @@ class TestResults:
         sql_args = (test_name_id, result_set_id)
 
         if test_name_id is None or result_set_id is None:
-            return None
+            return []
 
         if run_nr is not None:
             sql_cmd += " AND test_results.run_nr = ?"
@@ -167,24 +167,27 @@ class TestResults:
         cursor = self._conn.cursor()
         cursor.execute(sql_cmd, sql_args)
 
-        row = cursor.fetchone()
+        rows = cursor.fetchall()
 
-        if row is None:
-            return None
+        if rows == []:
+            return []
 
-        log = zlib.decompress(row[2]).decode("utf-8")
-        dmesg = zlib.decompress(row[3]).decode("utf-8")
-        test_result = TestResult(
-            test_name=row[0],
-            pass_fail=row[1],
-            log=log,
-            dmesg=dmesg,
-            result_set=row[4],
-            duration=row[5],
-            run_nr=row[6],
-        )
+        test_results = []
+        for row in rows:
+            log = zlib.decompress(row[2]).decode("utf-8")
+            dmesg = zlib.decompress(row[3]).decode("utf-8")
+            test_result = TestResult(
+                test_name=row[0],
+                pass_fail=row[1],
+                log=log,
+                dmesg=dmesg,
+                result_set=row[4],
+                duration=row[5],
+                run_nr=row[6],
+            )
+            test_results.append(test_result)
 
-        return test_result
+        return test_results
 
     def get_result_sets(self) -> List[str]:
         cursor = self._conn.cursor()

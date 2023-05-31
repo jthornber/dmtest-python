@@ -21,7 +21,7 @@ import sys
 import time
 import traceback
 import subprocess
-from typing import Optional
+from typing import Optional, NamedTuple, Sequence
 
 
 class TreeFormatter:
@@ -102,6 +102,46 @@ def cmd_result_set_delete(
 # -----------------------------------------
 # 'list' command
 
+class AvgResult(NamedTuple):
+    pass_fail: Optional[str]
+    nr_pass: int
+    nr_runs: int
+    duration: float
+
+
+def average_results(res_list: Sequence[db.TestResult]) -> Optional[AvgResult]:
+    if len(res_list) == 0:
+        return None
+
+    if len(res_list) == 1:
+        return AvgResult(
+            res_list[0].pass_fail,
+            1 if res_list[0].pass_fail == "PASS" else 0,
+            1,
+            res_list[0].duration
+        )
+
+    nr_pass = 0
+    all_duration = 0.0
+    pass_duration = 0.0
+    all_same = True
+    pass_fail = res_list[0].pass_fail
+
+    for result in res_list:
+        all_duration += result.duration
+        if result.pass_fail != pass_fail:
+            all_same = False
+        if result.pass_fail == "PASS":
+            nr_pass += 1
+            pass_duration += result.duration
+
+    return AvgResult(
+        pass_fail if all_same else None,
+        nr_pass,
+        len(res_list),
+        pass_duration / nr_pass if nr_pass > 0 else all_duration / len(res_list)
+    )
+
 
 def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
     result_set = get_result_set(args)
@@ -113,12 +153,16 @@ def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
         print("No matching tests found.")
 
     for p in paths:
-        result = results.get_test_result(p, result_set, args.run_nr)
         print(f"{formatter.tree_line(p)}", end="")
-        if result:
-            print(f"{result.pass_fail} [{result.duration:.2f}s]")
-        else:
+        result = average_results(results.get_test_results(p, result_set, args.run_nr))
+        if result is None:
             print("-")
+        elif result.nr_runs == 1:
+            print(f"{result.pass_fail} [{result.duration:.2f}s]")
+        elif result.pass_fail:
+            print(f"{result.nr_runs}/{result.nr_runs} {result.pass_fail} [{result.duration:.2f}s]")
+        else:
+            print(f"{result.nr_pass}/{result.nr_runs} PASS [{result.duration:.2f}s]")
 
 
 # -----------------------------------------
@@ -130,24 +174,34 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
     filter = build_filter(args)
     paths = sorted(tests.paths(results, result_set, filter))
 
+    if args.run_nr is None:
+        args.run_nr = 0
+
     if len(paths) == 0:
         print("No matching tests found.")
 
     for p in paths:
-        result = results.get_test_result(p, result_set, args.run_nr)
-        if result:
+        res_list = results.get_test_results(p, result_set, args.run_nr)
+        if len(res_list):
             if len(paths) > 1:
-                print(f"*** LOG FOR {p}, {len(result.log)} ***")
-            print(result.log)
+                print(f"*** LOG FOR {p}, {len(res_list[0].log)} ***")
+            print(res_list[0].log)
             if args.with_dmesg:
                 print("*** KERNEL LOG ***")
-                print(result.dmesg)
+                print(res_list[0].dmesg)
         else:
             print(f"*** NO LOG FOR {p}")
 
 
 # -----------------------------------------
 # 'compare' command
+
+def can_compare_times(old: Optional[AvgResult], new: Optional[AvgResult]) -> bool:
+    if old is None or new is None:
+        return False
+    if old.nr_pass != 0 and new.nr_pass != 0:
+        return True
+    return old.pass_fail and old.pass_fail == new.pass_fail
 
 
 def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults):
@@ -163,18 +217,24 @@ def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults
         print("No matching tests found.")
 
     for p in paths:
-        old_result = results.get_test_result(p, args.old_result_set)
-        new_result = results.get_test_result(p, new_set)
+        old_result = average_results(results.get_test_results(p, args.old_result_set))
+        new_result = average_results(results.get_test_results(p, new_set))
         print(f"{formatter.tree_line(p)}", end="")
         if old_result:
-            print(f"{old_result.pass_fail} => ", end="")
+            if old_result.pass_fail:
+                print(f"{old_result.pass_fail} => ", end="")
+            else:
+                print(f"{old_result.nr_pass / old_result.nr_runs * 100:.0f}% PASS => ", end="")
         else:
             print("- => ", end="")
         if new_result:
-            print(f"{new_result.pass_fail} ", end="")
+            if new_result.pass_fail:
+                print(f"{new_result.pass_fail} ", end="")
+            else:
+                print(f"{new_result.nr_pass / new_result.nr_runs * 100:.0f}% PASS ", end="")
         else:
             print("- ", end="")
-        if old_result and new_result and old_result.pass_fail == new_result.pass_fail:
+        if can_compare_times(old_result, new_result):
             diff = new_result.duration - old_result.duration
             print(f"[{diff * 100 / old_result.duration:+.0f}% {diff:+.2f}s]")
         else:
