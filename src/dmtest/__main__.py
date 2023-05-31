@@ -113,7 +113,7 @@ def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
         print("No matching tests found.")
 
     for p in paths:
-        result = results.get_test_result(p, result_set)
+        result = results.get_test_result(p, result_set, args.run_nr)
         print(f"{formatter.tree_line(p)}", end="")
         if result:
             print(f"{result.pass_fail} [{result.duration:.2f}s]")
@@ -134,7 +134,7 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
         print("No matching tests found.")
 
     for p in paths:
-        result = results.get_test_result(p, result_set)
+        result = results.get_test_result(p, result_set, args.run_nr)
         if result:
             if len(paths) > 1:
                 print(f"*** LOG FOR {p}, {len(result.log)} ***")
@@ -202,10 +202,13 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
     result_set = get_result_set(args)
 
+    if args.nr_runs < 1:
+        print("--nr-runs must be at least 1")
+        return
+
     # select tests
     filter = build_filter(args)
     paths = sorted(tests.paths(results, result_set, filter))
-    formatter = TreeFormatter()
 
     if len(paths) == 0:
         print("No matching tests found.")
@@ -222,69 +225,73 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
         stream=buffer,
     )
 
-    for p in paths:
-        buffer.seek(0)
-        buffer.truncate()
+    for run_nr in range(args.nr_runs):
+        formatter = TreeFormatter()
+        if args.nr_runs > 1:
+            print(f"*** Run: {run_nr} ***")
+        for p in paths:
+            buffer.seek(0)
+            buffer.truncate()
 
-        print(f"{formatter.tree_line(p)}", end="", flush=True)
-        log.info(f"Running '{p}'")
+            print(f"{formatter.tree_line(p)}", end="", flush=True)
+            log.info(f"Running '{p}'")
 
-        fix = dmtest.fixture.Fixture()
-        passed = True
-        missing_dep = None
-        start = time.time()
-        try:
-            with dep.dep_tracker() as tracker:
-                tests.run(p, fix)
-                exes = tracker.executables
-                targets = tracker.targets
-                test_deps.set_deps(p, exes, targets)
+            fix = dmtest.fixture.Fixture()
+            passed = True
+            missing_dep = None
+            start = time.time()
+            try:
+                with dep.dep_tracker() as tracker:
+                    tests.run(p, fix)
+                    exes = tracker.executables
+                    targets = tracker.targets
+                    test_deps.set_deps(p, exes, targets)
 
-        except test_register.MissingTestDep as e:
-            missing_dep = e
+            except test_register.MissingTestDep as e:
+                missing_dep = e
 
-        except Exception as e:
-            passed = False
-            if bool(os.getenv("DMTEST_PY_VERBOSE_TB", False)):
-                log.error(f"Exception caught: \n{traceback.format_exc()}\n")
-            else:
-                log.error(f"Exception caught: {e}")
-            while e.__cause__ or e.__context__:
-                if e.__cause__:
-                    e = e.__cause__
+            except Exception as e:
+                passed = False
+                if bool(os.getenv("DMTEST_PY_VERBOSE_TB", False)):
+                    log.error(f"Exception caught: \n{traceback.format_exc()}\n")
                 else:
-                    e = e.__context__
-                log.error(f"Triggered while handling Exception: {e}")
-        elapsed = time.time() - start
+                    log.error(f"Exception caught: {e}")
+                while e.__cause__ or e.__context__:
+                    if e.__cause__:
+                        e = e.__cause__
+                    else:
+                        e = e.__context__
+                    log.error(f"Triggered while handling Exception: {e}")
+            elapsed = time.time() - start
 
-        pass_str = None
-        if missing_dep:
-            print(f"MISSING_DEP [{missing_dep}]")
-            pass_str = "MISSING_DEP"
-        elif passed:
-            print(f"PASS [{elapsed:.2f}s]")
-            pass_str = "PASS"
-        else:
-            print("FAIL")
-            pass_str = "FAIL"
+            pass_str = None
+            if missing_dep:
+                print(f"MISSING_DEP [{missing_dep}]")
+                pass_str = "MISSING_DEP"
+            elif passed:
+                print(f"PASS [{elapsed:.2f}s]")
+                pass_str = "PASS"
+            else:
+                print("FAIL")
+                pass_str = "FAIL"
 
-        start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
-        start_str += str(start % 1)[1:]
-        dmesg_cmd = ["journalctl", "--dmesg", "--since", start_str]
-        try:
-            dmesg_log = subprocess.run(
-                dmesg_cmd,
-                stdout=subprocess.PIPE,
-                universal_newlines=True,
-                check=True
-            ).stdout
-        except subprocess.CalledProcessError as e:
-            log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
-            dmesg_log = ""
+            start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
+            start_str += str(start % 1)[1:]
+            dmesg_cmd = ["journalctl", "--dmesg", "--since", start_str]
+            try:
+                dmesg_log = subprocess.run(
+                    dmesg_cmd,
+                    stdout=subprocess.PIPE,
+                    universal_newlines=True,
+                    check=True
+                ).stdout
+            except subprocess.CalledProcessError as e:
+                log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
+                dmesg_log = ""
 
-        test_log = buffer.getvalue()
-        result = db.TestResult(p, pass_str, test_log, dmesg_log, result_set, elapsed)
-        results.insert_test_result(result, with_delete=True)
+            test_log = buffer.getvalue()
+            result = db.TestResult(p, pass_str, test_log, dmesg_log, result_set, elapsed, run_nr)
+            results.insert_test_result(result, with_delete=(run_nr == 0))
 
     dep.write_test_deps(test_dep_path, test_deps)
 
@@ -412,6 +419,15 @@ def arg_result_set(p):
     )
 
 
+def arg_run_nr(p):
+    p.add_argument(
+        "--run-nr",
+        metavar="RUN_NR",
+        type=int,
+        help="Specify which run of a result set to use",
+    )
+
+
 def command_line_parser():
     parser = argparse.ArgumentParser(
         prog="dmtest", description="run device-mapper tests"
@@ -435,11 +451,13 @@ def command_line_parser():
     list_p.set_defaults(func=cmd_list)
     arg_filter(list_p)
     arg_result_set(list_p)
+    arg_run_nr(list_p)
 
     log_p = subparsers.add_parser("log", help="list test logs")
     log_p.set_defaults(func=cmd_log)
     arg_filter(log_p)
     arg_result_set(log_p)
+    arg_run_nr(log_p)
     log_p.add_argument(
         "--with-dmesg",
         help="Print the kernel log as well",
@@ -450,6 +468,13 @@ def command_line_parser():
     run_p.set_defaults(func=cmd_run)
     arg_filter(run_p)
     arg_result_set(run_p)
+    run_p.add_argument(
+        "--nr-runs",
+        metavar="NR_RUNS",
+        type=int,
+        default=1,
+        help="The number of times to run the tests",
+    )
     run_p.add_argument(
         "--log",
         help="Print the log to stdout",

@@ -10,6 +10,7 @@ class TestResult(NamedTuple):
     dmesg: str
     result_set: str
     duration: float
+    run_nr: int
 
 
 class NoSuchResultSet(Exception):
@@ -62,9 +63,10 @@ class TestResults:
             dmesg BLOB,
             result_set_id INTEGER,
             duration REAL,
+            run_nr INTEGER,
             FOREIGN KEY (result_set_id) REFERENCES result_sets (result_set_id)
             FOREIGN KEY (test_name_id) REFERENCES test_names (test_name_id),
-            UNIQUE (test_name_id, result_set_id)
+            UNIQUE (test_name_id, result_set_id, run_nr)
         )
         """
         )
@@ -130,7 +132,7 @@ class TestResults:
         compressed_log = zlib.compress(result.log.encode("utf-8"))
         compressed_dmesg = zlib.compress(result.dmesg.encode("utf-8"))
         cursor.execute(
-            "INSERT INTO test_results (test_name_id, pass_fail, log, dmesg, result_set_id, duration) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO test_results (test_name_id, pass_fail, log, dmesg, result_set_id, duration, run_nr) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 test_name_id,
                 result.pass_fail,
@@ -138,28 +140,32 @@ class TestResults:
                 compressed_dmesg,
                 result_set_id,
                 result.duration,
+                result.run_nr,
             ),
         )
         self._conn.commit()
 
-    def get_test_result(self, test_name: str, result_set: str) -> Optional[TestResult]:
+    def get_test_result(self, test_name: str, result_set: str, run_nr: Optional[int] = None) -> Optional[TestResult]:
         test_name_id = self.get_test_name_id(test_name)
         result_set_id = self.get_result_set_id(result_set)
-
-        if test_name_id is None or result_set_id is None:
-            return None
-
-        cursor = self._conn.cursor()
-        cursor.execute(
-            """
-            SELECT test_names.test_name, test_results.pass_fail, test_results.log, test_results.dmesg, result_sets.result_set, test_results.duration
+        sql_cmd = """
+            SELECT test_names.test_name, test_results.pass_fail, test_results.log, test_results.dmesg, result_sets.result_set, test_results.duration, test_results.run_nr
             FROM test_results
             JOIN test_names ON test_results.test_name_id = test_names.test_name_id
             JOIN result_sets ON test_results.result_set_id = result_sets.result_set_id
             WHERE test_results.test_name_id = ? AND test_results.result_set_id = ?
-        """,
-            (test_name_id, result_set_id),
-        )
+        """
+        sql_args = (test_name_id, result_set_id)
+
+        if test_name_id is None or result_set_id is None:
+            return None
+
+        if run_nr is not None:
+            sql_cmd += " AND test_results.run_nr = ?"
+            sql_args = (test_name_id, result_set_id, run_nr)
+
+        cursor = self._conn.cursor()
+        cursor.execute(sql_cmd, sql_args)
 
         row = cursor.fetchone()
 
@@ -175,6 +181,7 @@ class TestResults:
             dmesg=dmesg,
             result_set=row[4],
             duration=row[5],
+            run_nr=row[6],
         )
 
         return test_result
