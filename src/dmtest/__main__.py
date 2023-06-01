@@ -242,6 +242,34 @@ def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults
 
 
 # -----------------------------------------
+# 'list-runs' command
+
+def cmd_list_runs(tests: test_register.TestRegister, args, results: db.TestResults):
+    result_set = get_result_set(args)
+    filter = build_filter(args)
+    paths = sorted(tests.paths(results, result_set, filter))
+    formatter = TreeFormatter()
+
+    if len(paths) == 0:
+        print("No matching tests found.")
+
+    for p in paths:
+        found = False
+        res_list = results.get_test_results(p, result_set)
+        print(f"{formatter.tree_line(p)}", end="")
+        for result in res_list:
+            if args.run_state and result.pass_fail.lower() != args.run_state.lower():
+                continue
+            if found:
+                print(f"{''.ljust(50,' ')}", end="")
+            else:
+                found = True
+            print(f"{result.run_nr}: {result.pass_fail} [{result.duration:.2f}s]")
+        if not found:
+            print("-")
+
+
+# -----------------------------------------
 # 'run' command
 
 test_dep_path = "./test_dependencies.toml"
@@ -551,6 +579,17 @@ def command_line_parser():
         help="Old result set to compare against",
     )
     arg_result_set(compare_p)
+
+    list_runs_p = subparsers.add_parser("list-runs", help="list all runs in a result set")
+    list_runs_p.set_defaults(func=cmd_list_runs)
+    arg_filter(list_runs_p)
+    arg_result_set(list_runs_p)
+    list_runs_p.add_argument(
+        "--run-state",
+        metavar="STATE",
+        type=str,
+        help="only show runs whose result matches the given state",
+    )
 
     health_p = subparsers.add_parser(
         "health", help="check required tools are installed"
