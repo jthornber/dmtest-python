@@ -20,7 +20,8 @@ import os
 import sys
 import time
 import traceback
-from typing import Optional
+import subprocess
+from typing import Optional, NamedTuple, Sequence
 
 
 class TreeFormatter:
@@ -101,6 +102,46 @@ def cmd_result_set_delete(
 # -----------------------------------------
 # 'list' command
 
+class AvgResult(NamedTuple):
+    pass_fail: Optional[str]
+    nr_pass: int
+    nr_runs: int
+    duration: float
+
+
+def average_results(res_list: Sequence[db.TestResult]) -> Optional[AvgResult]:
+    if len(res_list) == 0:
+        return None
+
+    if len(res_list) == 1:
+        return AvgResult(
+            res_list[0].pass_fail,
+            1 if res_list[0].pass_fail == "PASS" else 0,
+            1,
+            res_list[0].duration
+        )
+
+    nr_pass = 0
+    all_duration = 0.0
+    pass_duration = 0.0
+    all_same = True
+    pass_fail = res_list[0].pass_fail
+
+    for result in res_list:
+        all_duration += result.duration
+        if result.pass_fail != pass_fail:
+            all_same = False
+        if result.pass_fail == "PASS":
+            nr_pass += 1
+            pass_duration += result.duration
+
+    return AvgResult(
+        pass_fail if all_same else None,
+        nr_pass,
+        len(res_list),
+        pass_duration / nr_pass if nr_pass > 0 else all_duration / len(res_list)
+    )
+
 
 def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
     result_set = get_result_set(args)
@@ -112,12 +153,16 @@ def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
         print("No matching tests found.")
 
     for p in paths:
-        result = results.get_test_result(p, result_set)
         print(f"{formatter.tree_line(p)}", end="")
-        if result:
-            print(f"{result.pass_fail} [{result.duration:.2f}s]")
-        else:
+        result = average_results(results.get_test_results(p, result_set, args.run_nr))
+        if result is None:
             print("-")
+        elif result.nr_runs == 1:
+            print(f"{result.pass_fail} [{result.duration:.2f}s]")
+        elif result.pass_fail:
+            print(f"{result.nr_runs}/{result.nr_runs} {result.pass_fail} [{result.duration:.2f}s]")
+        else:
+            print(f"{result.nr_pass}/{result.nr_runs} PASS [{result.duration:.2f}s]")
 
 
 # -----------------------------------------
@@ -129,21 +174,34 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
     filter = build_filter(args)
     paths = sorted(tests.paths(results, result_set, filter))
 
+    if args.run_nr is None:
+        args.run_nr = 0
+
     if len(paths) == 0:
         print("No matching tests found.")
 
     for p in paths:
-        result = results.get_test_result(p, result_set)
-        if result:
+        res_list = results.get_test_results(p, result_set, args.run_nr)
+        if len(res_list):
             if len(paths) > 1:
-                print(f"*** LOG FOR {p}, {len(result.log)} ***")
-            print(result.log)
+                print(f"*** LOG FOR {p}, {len(res_list[0].log)} ***")
+            print(res_list[0].log)
+            if args.with_dmesg:
+                print("*** KERNEL LOG ***")
+                print(res_list[0].dmesg)
         else:
             print(f"*** NO LOG FOR {p}")
 
 
 # -----------------------------------------
 # 'compare' command
+
+def can_compare_times(old: Optional[AvgResult], new: Optional[AvgResult]) -> bool:
+    if old is None or new is None:
+        return False
+    if old.nr_pass != 0 and new.nr_pass != 0:
+        return True
+    return old.pass_fail and old.pass_fail == new.pass_fail
 
 
 def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults):
@@ -159,22 +217,56 @@ def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults
         print("No matching tests found.")
 
     for p in paths:
-        old_result = results.get_test_result(p, args.old_result_set)
-        new_result = results.get_test_result(p, new_set)
+        old_result = average_results(results.get_test_results(p, args.old_result_set))
+        new_result = average_results(results.get_test_results(p, new_set))
         print(f"{formatter.tree_line(p)}", end="")
         if old_result:
-            print(f"{old_result.pass_fail} => ", end="")
+            if old_result.pass_fail:
+                print(f"{old_result.pass_fail} => ", end="")
+            else:
+                print(f"{old_result.nr_pass / old_result.nr_runs * 100:.0f}% PASS => ", end="")
         else:
             print("- => ", end="")
         if new_result:
-            print(f"{new_result.pass_fail} ", end="")
+            if new_result.pass_fail:
+                print(f"{new_result.pass_fail} ", end="")
+            else:
+                print(f"{new_result.nr_pass / new_result.nr_runs * 100:.0f}% PASS ", end="")
         else:
             print("- ", end="")
-        if old_result and new_result and old_result.pass_fail == new_result.pass_fail:
+        if can_compare_times(old_result, new_result):
             diff = new_result.duration - old_result.duration
             print(f"[{diff * 100 / old_result.duration:+.0f}% {diff:+.2f}s]")
         else:
             print("")
+
+
+# -----------------------------------------
+# 'list-runs' command
+
+def cmd_list_runs(tests: test_register.TestRegister, args, results: db.TestResults):
+    result_set = get_result_set(args)
+    filter = build_filter(args)
+    paths = sorted(tests.paths(results, result_set, filter))
+    formatter = TreeFormatter()
+
+    if len(paths) == 0:
+        print("No matching tests found.")
+
+    for p in paths:
+        found = False
+        res_list = results.get_test_results(p, result_set)
+        print(f"{formatter.tree_line(p)}", end="")
+        for result in res_list:
+            if args.run_state and result.pass_fail.lower() != args.run_state.lower():
+                continue
+            if found:
+                print(f"{''.ljust(50,' ')}", end="")
+            else:
+                found = True
+            print(f"{result.run_nr}: {result.pass_fail} [{result.duration:.2f}s]")
+        if not found:
+            print("-")
 
 
 # -----------------------------------------
@@ -198,10 +290,13 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
     result_set = get_result_set(args)
 
+    if args.nr_runs < 1:
+        print("--nr-runs must be at least 1")
+        return
+
     # select tests
     filter = build_filter(args)
     paths = sorted(tests.paths(results, result_set, filter))
-    formatter = TreeFormatter()
 
     if len(paths) == 0:
         print("No matching tests found.")
@@ -218,56 +313,73 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
         stream=buffer,
     )
 
-    for p in paths:
-        result = results.get_test_result(p, result_set)
-        buffer.seek(0)
-        buffer.truncate()
+    for run_nr in range(args.nr_runs):
+        formatter = TreeFormatter()
+        if args.nr_runs > 1:
+            print(f"*** Run: {run_nr} ***")
+        for p in paths:
+            buffer.seek(0)
+            buffer.truncate()
 
-        print(f"{formatter.tree_line(p)}", end="", flush=True)
-        log.info(f"Running '{p}'")
+            print(f"{formatter.tree_line(p)}", end="", flush=True)
+            log.info(f"Running '{p}'")
 
-        fix = dmtest.fixture.Fixture()
-        passed = True
-        missing_dep = None
-        start = time.time()
-        try:
-            with dep.dep_tracker() as tracker:
-                tests.run(p, fix)
-                exes = tracker.executables
-                targets = tracker.targets
-                test_deps.set_deps(p, exes, targets)
+            fix = dmtest.fixture.Fixture()
+            passed = True
+            missing_dep = None
+            start = time.time()
+            try:
+                with dep.dep_tracker() as tracker:
+                    tests.run(p, fix)
+                    exes = tracker.executables
+                    targets = tracker.targets
+                    test_deps.set_deps(p, exes, targets)
 
-        except test_register.MissingTestDep as e:
-            missing_dep = e
+            except test_register.MissingTestDep as e:
+                missing_dep = e
 
-        except Exception as e:
-            passed = False
-            if bool(os.getenv("DMTEST_PY_VERBOSE_TB", False)):
-                log.error(f"Exception caught: \n{traceback.format_exc()}\n")
-            else:
-                log.error(f"Exception caught: {e}")
-            while e.__cause__ or e.__context__:
-                if e.__cause__:
-                    e = e.__cause__
+            except Exception as e:
+                passed = False
+                if bool(os.getenv("DMTEST_PY_VERBOSE_TB", False)):
+                    log.error(f"Exception caught: \n{traceback.format_exc()}\n")
                 else:
-                    e = e.__context__
-                log.error(f"Triggered while handling Exception: {e}")
-        elapsed = time.time() - start
+                    log.error(f"Exception caught: {e}")
+                while e.__cause__ or e.__context__:
+                    if e.__cause__:
+                        e = e.__cause__
+                    else:
+                        e = e.__context__
+                    log.error(f"Triggered while handling Exception: {e}")
+            elapsed = time.time() - start
 
-        pass_str = None
-        if missing_dep:
-            print(f"MISSING_DEP [{missing_dep}]")
-            pass_str = "MISSING_DEP"
-        elif passed:
-            print(f"PASS [{elapsed:.2f}s]")
-            pass_str = "PASS"
-        else:
-            print("FAIL")
-            pass_str = "FAIL"
+            pass_str = None
+            if missing_dep:
+                print(f"MISSING_DEP [{missing_dep}]")
+                pass_str = "MISSING_DEP"
+            elif passed:
+                print(f"PASS [{elapsed:.2f}s]")
+                pass_str = "PASS"
+            else:
+                print("FAIL")
+                pass_str = "FAIL"
 
-        test_log = buffer.getvalue()
-        result = db.TestResult(p, pass_str, test_log, result_set, elapsed)
-        results.insert_test_result(result)
+            start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
+            start_str += str(start % 1)[1:]
+            dmesg_cmd = ["journalctl", "--dmesg", "--since", start_str]
+            try:
+                dmesg_log = subprocess.run(
+                    dmesg_cmd,
+                    stdout=subprocess.PIPE,
+                    universal_newlines=True,
+                    check=True
+                ).stdout
+            except subprocess.CalledProcessError as e:
+                log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
+                dmesg_log = ""
+
+            test_log = buffer.getvalue()
+            result = db.TestResult(p, pass_str, test_log, dmesg_log, result_set, elapsed, run_nr)
+            results.insert_test_result(result, with_delete=(run_nr == 0))
 
     dep.write_test_deps(test_dep_path, test_deps)
 
@@ -395,6 +507,15 @@ def arg_result_set(p):
     )
 
 
+def arg_run_nr(p):
+    p.add_argument(
+        "--run-nr",
+        metavar="RUN_NR",
+        type=int,
+        help="Specify which run of a result set to use",
+    )
+
+
 def command_line_parser():
     parser = argparse.ArgumentParser(
         prog="dmtest", description="run device-mapper tests"
@@ -418,16 +539,30 @@ def command_line_parser():
     list_p.set_defaults(func=cmd_list)
     arg_filter(list_p)
     arg_result_set(list_p)
+    arg_run_nr(list_p)
 
     log_p = subparsers.add_parser("log", help="list test logs")
     log_p.set_defaults(func=cmd_log)
     arg_filter(log_p)
     arg_result_set(log_p)
+    arg_run_nr(log_p)
+    log_p.add_argument(
+        "--with-dmesg",
+        help="Print the kernel log as well",
+        action="store_true",
+    )
 
     run_p = subparsers.add_parser("run", help="run tests")
     run_p.set_defaults(func=cmd_run)
     arg_filter(run_p)
     arg_result_set(run_p)
+    run_p.add_argument(
+        "--nr-runs",
+        metavar="NR_RUNS",
+        type=int,
+        default=1,
+        help="The number of times to run the tests",
+    )
     run_p.add_argument(
         "--log",
         help="Print the log to stdout",
@@ -444,6 +579,17 @@ def command_line_parser():
         help="Old result set to compare against",
     )
     arg_result_set(compare_p)
+
+    list_runs_p = subparsers.add_parser("list-runs", help="list all runs in a result set")
+    list_runs_p.set_defaults(func=cmd_list_runs)
+    arg_filter(list_runs_p)
+    arg_result_set(list_runs_p)
+    list_runs_p.add_argument(
+        "--run-state",
+        metavar="STATE",
+        type=str,
+        help="only show runs whose result matches the given state",
+    )
 
     health_p = subparsers.add_parser(
         "health", help="check required tools are installed"

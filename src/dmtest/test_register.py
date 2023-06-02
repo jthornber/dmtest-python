@@ -51,8 +51,8 @@ class TestRegister:
         selected = []
 
         for t in self._tests.keys():
-            result = results.get_test_result(t, result_set)
-            if filt.matches(t, result):
+            res_list = results.get_test_results(t, result_set)
+            if filt.matches(t, res_list):
                 selected.append(t)
 
         return selected
