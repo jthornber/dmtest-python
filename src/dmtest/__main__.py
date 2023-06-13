@@ -538,7 +538,7 @@ def command_line_parser():
     result_set_delete_p.set_defaults(func=cmd_result_set_delete)
     result_set_delete_p.add_argument("result_set", help="The result set to delete")
 
-    list_p = subparsers.add_parser("list", help="list tests")
+    list_p = subparsers.add_parser("list", help="list test results")
     list_p.set_defaults(func=cmd_list)
     arg_filter(list_p)
     arg_result_set(list_p)
@@ -583,7 +583,7 @@ def command_line_parser():
     )
     arg_result_set(compare_p)
 
-    list_runs_p = subparsers.add_parser("list-runs", help="list all runs in a result set")
+    list_runs_p = subparsers.add_parser("list-runs", help="list each test run individually")
     list_runs_p.set_defaults(func=cmd_list_runs)
     arg_filter(list_runs_p)
     arg_result_set(list_runs_p)
