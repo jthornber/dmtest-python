@@ -364,7 +364,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
                 pass_str = "FAIL"
 
             start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
-            start_str += str(start % 1)[1:]
+            start_str += f"{start % 1:f}"[1:]
             dmesg_cmd = ["journalctl", "--dmesg", "--since", start_str]
             try:
                 dmesg_log = subprocess.run(
