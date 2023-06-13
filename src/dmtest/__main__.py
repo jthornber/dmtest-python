@@ -174,23 +174,26 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
     filter = build_filter(args)
     paths = sorted(tests.paths(results, result_set, filter))
 
-    if args.run_nr is None:
-        args.run_nr = 0
-
     if len(paths) == 0:
         print("No matching tests found.")
 
     for p in paths:
         res_list = results.get_test_results(p, result_set, args.run_nr)
-        if len(res_list):
-            if len(paths) > 1:
-                print(f"*** LOG FOR {p}, {len(res_list[0].log)} ***")
-            print(res_list[0].log)
+        if len(res_list) == 0:
+            print(f"*** NO LOG FOR {p}")
+            continue
+        for result in res_list:
+            if len(paths) > 1 or len(res_list) > 1:
+                msg = ""
+                if len(paths) > 1:
+                    msg += f" {p}"
+                if len(res_list) > 1:
+                    msg += f" RUN {result.run_nr}"
+                print(f"*** LOG FOR{msg}, {len(result.log)} ***")
+            print(result.log)
             if args.with_dmesg:
                 print("*** KERNEL LOG ***")
-                print(res_list[0].dmesg)
-        else:
-            print(f"*** NO LOG FOR {p}")
+                print(result.dmesg)
 
 
 # -----------------------------------------
