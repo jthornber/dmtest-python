@@ -2,7 +2,6 @@ import argparse
 import dmtest.bufio.bufio_tests as bufio
 import dmtest.db as db
 import dmtest.fixture
-import dmtest.process as process
 import dmtest.test_register as test_register
 import dmtest.blk_archive.rolling_snaps as blk_archive
 import dmtest.blk_archive.unit as blk_archive_unit
@@ -21,6 +20,7 @@ import sys
 import time
 import traceback
 import subprocess
+import shutil
 from typing import Optional, NamedTuple, Sequence
 
 
@@ -396,35 +396,8 @@ def is_repo(path):
 
 
 def which(executable):
-    (return_code, stdout, stderr) = process.run(
-        f"which {executable}", raise_on_fail=False
-    )
-    if return_code == 0:
-        return stdout
-    else:
-        return "-"
-
-
-targets_to_kmodules = {
-    "thin-pool": "dm_thin_pool",
-    "thin": "dm_thin_pool",
-    "linear": "device_mapper",
-    "bufio_test": "dm_bufio_test",
-}
-
-
-def has_target(target):
-    # It may already be loaded or compiled in
-    (_, stdout, stderr) = process.run("dmsetup targets")
-    if target in stdout:
-        return True
-
-    if target not in targets_to_kmodules:
-        raise ValueError("Missing target -> kmodules mapping for '{target}'")
-
-    kmod = targets_to_kmodules[target]
-    (code, stdout, stderr) = process.run(f"modprobe {kmod}", raise_on_fail=False)
-    return code == 0
+    exe_path = shutil.which(executable)
+    return exe_path if exe_path else "-"
 
 
 def cmd_health(tests: test_register.TestRegister, args, results):
@@ -444,7 +417,7 @@ def cmd_health(tests: test_register.TestRegister, args, results):
     print("Targets:\n")
     targets = test_deps.get_all_targets()
     for t in targets:
-        found = "present" if has_target(t) else "missing"
+        found = "present" if test_register.has_target(t) else "missing"
         print(f"{t.ljust(40, '.')} {found}")
 
 

@@ -674,5 +674,5 @@ def register(tests):
             ("many-caches", t_multiple_caches),
             ("evict-old", t_evict_old),
         ],
-        dep_fn=reg.has_target("bufio_test"),
+        dep_fn=reg.check_target("bufio_test"),
     )

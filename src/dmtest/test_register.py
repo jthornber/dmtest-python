@@ -1,4 +1,5 @@
 import re
+import shutil
 import dmtest.fixture as fixture
 import dmtest.process as process
 
@@ -67,26 +68,40 @@ class TestRegister:
             raise ValueError(f"can't find test {path}")
 
 
-def has_target(name):
-    def check():
-        # It may already be loaded
-        (_, stdout, stderr) = process.run(f"dmsetup targets")
-        if name in stdout:
-            return
+targets_to_kmodules = {
+    "thin-pool": "dm_thin_pool",
+    "thin": "dm_thin_pool",
+    "linear": "device_mapper",
+    "bufio_test": "dm_bufio_test",
+}
 
-        try:
-            process.run(f"modprobe dm_{name}")
-        except Exception:
-            raise MissingTestDep(f"dm_{name} kernel module")
+
+def has_target(target: str) -> bool:
+    # It may already be loaded or compiled in
+    (_, stdout, stderr) = process.run("dmsetup targets")
+    if target in stdout:
+        return True
+
+    try:
+        kmod = targets_to_kmodules[target]
+    except KeyError:
+        kmod = f"dm_{target}"
+
+    (code, stdout, stderr) = process.run(f"modprobe {kmod}", raise_on_fail=False)
+    return code == 0
+
+
+def check_target(name: str):
+    def check():
+        if not has_target(name):
+            raise MissingTestDep(f"{name} target")
 
     return check
 
 
-def has_exe(name):
+def check_exe(name: str):
     def check():
-        try:
-            process.run(f"which {name}")
-        except Exception:
+        if shutil.which(name) is None:
             raise MissingTestDep(f"{name} executable")
 
     return check
