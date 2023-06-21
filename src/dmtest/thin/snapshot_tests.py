@@ -11,6 +11,7 @@ import dmtest.tvm as tvm
 import dmtest.units as units
 import dmtest.utils as utils
 import dmtest.pattern_stomper as stomper
+import dmtest.test_register as reg
 
 import os
 import threading
@@ -298,8 +299,8 @@ def register(tests):
             ("many-snapshots-of-same-volume", t_many_snapshots_of_same_volume),
             ("parallel-io-to-shared-thins", t_parallel_io_to_shared_thins),
             ("ref-count-tree", t_ref_count_tree),
-            ("many-snaps-with-changes", t_many_snaps_with_changes),
-            ("try-and-create-duplicates", t_try_and_create_duplicates),
+            ("many-snaps-with-changes", t_many_snaps_with_changes, reg.check_linux_repo),
+            ("try-and-create-duplicates", t_try_and_create_duplicates, reg.check_linux_repo),
         ],
     )
     tests.register_batch(

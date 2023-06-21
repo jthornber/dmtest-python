@@ -1,10 +1,11 @@
+import os
 import re
 import shutil
 import dmtest.fixture as fixture
 import dmtest.process as process
 import dmtest.dependency_tracker as dep
 
-from typing import NamedTuple, Callable
+from typing import NamedTuple, Callable, Optional
 
 
 def _normalise_path(p):
@@ -40,14 +41,19 @@ class TestRegister:
         path = _normalise_path(path)
         self._tests[path] = Test(dep_fn, callback)
 
-    def register_batch(self, prefix, pairs, dep_fn=None):
+    def register_batch(self, prefix, tests, batch_dep_fn=None):
         # ensure a trailing slash
         prefix = str(prefix)
         if not prefix.endswith("/"):
             prefix += "/"
 
-        for path, callback in pairs:
-            self.register(prefix + path.lstrip("/"), callback, dep_fn=dep_fn)
+        for test in tests:
+            if len(test) == 2:
+                path, callback = test
+                dep_fn = batch_dep_fn
+            else:
+                path, callback, dep_fn = test
+            self.register(prefix + path.lstrip("/"), callback, dep_fn)
 
     def paths(self, results, result_set, filt=None):
         selected = []
@@ -98,3 +104,13 @@ def has_target(target: str) -> bool:
 
     (code, stdout, stderr) = process.run(f"modprobe {kmod}", raise_on_fail=False)
     return code == 0
+
+
+def has_repo(path: str) -> bool:
+    return os.path.isdir(os.path.join(path, ".git"))
+
+
+def check_linux_repo():
+    path = os.getenv("DMTEST_KERNEL_SOURCE", "linux")
+    if not has_repo(path):
+        raise MissingTestDep(f"{path} repository")

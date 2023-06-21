@@ -393,10 +393,6 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 # 'health' command
 
 
-def is_repo(path):
-    return os.path.isdir(os.path.join(path, ".git"))
-
-
 def which(executable):
     exe_path = shutil.which(executable)
     return exe_path if exe_path else "-"
@@ -407,7 +403,7 @@ def cmd_health(tests: test_register.TestRegister, args, results):
 
     print("Kernel Repo:\n")
     repo = os.getenv("DMTEST_KERNEL_SOURCE", "linux")
-    found = "present" if is_repo(repo) else "missing"
+    found = "present" if test_register.has_repo(repo) else "missing"
     print(f"{repo.ljust(40,'.')} {found}\n\n")
 
     print("Executables:\n")

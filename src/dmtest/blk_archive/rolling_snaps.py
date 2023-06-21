@@ -11,6 +11,7 @@ import dmtest.tvm as tvm
 import dmtest.units as units
 import dmtest.utils as utils
 import dmtest.pattern_stomper as stomper
+import dmtest.test_register as reg
 
 import os
 import threading
@@ -76,6 +77,6 @@ def register(tests):
     tests.register_batch(
         "/blk-archive/",
         [
-            ("rolling-snaps", t_rolling_snaps),
+            ("rolling-snaps", t_rolling_snaps, reg.check_linux_repo),
         ],
     )
