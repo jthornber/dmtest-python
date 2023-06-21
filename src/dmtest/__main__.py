@@ -333,6 +333,8 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
             start = time.time()
             try:
                 with dep.dep_tracker() as tracker:
+                    old_deps = test_deps.get_deps(p)
+                    tests.check_deps(old_deps)
                     tests.run(p, fix)
                     exes = tracker.executables
                     targets = tracker.targets

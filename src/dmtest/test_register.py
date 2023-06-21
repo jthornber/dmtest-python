@@ -2,6 +2,7 @@ import re
 import shutil
 import dmtest.fixture as fixture
 import dmtest.process as process
+import dmtest.dependency_tracker as dep
 
 from typing import NamedTuple, Callable
 
@@ -58,6 +59,14 @@ class TestRegister:
 
         return selected
 
+    def check_deps(self, deps: dep.DepTracker):
+        for target in deps.targets:
+            if not has_target(target):
+                raise MissingTestDep(f"{target} target")
+        for exe in deps.executables:
+            if shutil.which(exe) is None:
+                raise MissingTestDep(f"{exe} executable")
+
     def run(self, path, fix):
         t = self._tests[path]
         if t:
@@ -89,19 +98,3 @@ def has_target(target: str) -> bool:
 
     (code, stdout, stderr) = process.run(f"modprobe {kmod}", raise_on_fail=False)
     return code == 0
-
-
-def check_target(name: str):
-    def check():
-        if not has_target(name):
-            raise MissingTestDep(f"{name} target")
-
-    return check
-
-
-def check_exe(name: str):
-    def check():
-        if shutil.which(name) is None:
-            raise MissingTestDep(f"{name} executable")
-
-    return check

@@ -7,9 +7,9 @@ from contextlib import contextmanager
 
 
 class DepTracker:
-    def __init__(self):
-        self._executables = set()
-        self._targets = set()
+    def __init__(self, executables=(), targets=()):
+        self._executables = set(executables)
+        self._targets = set(targets)
 
     def add_executable(self, exe):
         self._executables.add(exe)
@@ -30,6 +30,13 @@ class TestDeps:
     def __init__(self):
         self._deps = {}
         self._updated = False
+
+    def get_deps(self, test_name: str) -> DepTracker:
+        try:
+            dep = self._deps[test_name]
+            return DepTracker(dep["executables"], dep["targets"])
+        except KeyError:
+            return DepTracker()
 
     def set_deps(self, test_name, exes, targets):
         new_dep = {"executables": exes, "targets": targets}
