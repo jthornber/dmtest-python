@@ -288,6 +288,30 @@ class StringIOWithStderr(io.StringIO):
         sys.stderr.write(s)
 
 
+def get_dmesg_log(start: float) -> str:
+    start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
+    try:
+        sub_sec_start_str = start_str + f"{start % 1:f}"[1:]
+        return subprocess.run(
+            ["journalctl", "--dmesg", "--since", sub_sec_start_str],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True
+        ).stdout
+    except subprocess.CalledProcessError:
+        pass
+    try:
+        return subprocess.run(
+            ["journalctl", "--dmesg", "--since", start_str],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True
+        ).stdout
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
+        return ""
+
+
 def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
     test_deps = dep.read_test_deps(test_dep_path)
 
@@ -368,20 +392,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
                 print("FAIL")
                 pass_str = "FAIL"
 
-            start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
-            start_str += f"{start % 1:f}"[1:]
-            dmesg_cmd = ["journalctl", "--dmesg", "--since", start_str]
-            try:
-                dmesg_log = subprocess.run(
-                    dmesg_cmd,
-                    stdout=subprocess.PIPE,
-                    universal_newlines=True,
-                    check=True
-                ).stdout
-            except subprocess.CalledProcessError as e:
-                log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
-                dmesg_log = ""
-
+            dmesg_log = get_dmesg_log(start)
             test_log = buffer.getvalue()
             result = db.TestResult(p, pass_str, test_log, dmesg_log, result_set, elapsed, run_nr)
             results.insert_test_result(result, with_delete=(run_nr == 0))
