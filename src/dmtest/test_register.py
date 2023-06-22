@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import subprocess
 import dmtest.fixture as fixture
 import dmtest.process as process
 import dmtest.dependency_tracker as dep
@@ -93,7 +94,12 @@ targets_to_kmodules = {
 
 def has_target(target: str) -> bool:
     # It may already be loaded or compiled in
-    (_, stdout, stderr) = process.run("dmsetup targets")
+    stdout = subprocess.run(
+        ["dmsetup", "targets"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True
+    ).stdout
     if target in stdout:
         return True
 
@@ -102,8 +108,11 @@ def has_target(target: str) -> bool:
     except KeyError:
         kmod = f"dm_{target}"
 
-    (code, stdout, stderr) = process.run(f"modprobe {kmod}", raise_on_fail=False)
-    return code == 0
+    return subprocess.run(
+        ["modprobe", kmod],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ).returncode == 0
 
 
 def has_repo(path: str) -> bool:

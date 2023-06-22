@@ -383,6 +383,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
             pass_str = None
             if missing_dep:
+                log.info(f"Missing dependency: {missing_dep}")
                 print(f"MISSING_DEP [{missing_dep}]")
                 pass_str = "MISSING_DEP"
             elif passed:
