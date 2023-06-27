@@ -2,7 +2,6 @@ import argparse
 import dmtest.bufio.bufio_tests as bufio
 import dmtest.db as db
 import dmtest.fixture
-import dmtest.process as process
 import dmtest.test_register as test_register
 import dmtest.blk_archive.rolling_snaps as blk_archive
 import dmtest.blk_archive.unit as blk_archive_unit
@@ -21,6 +20,7 @@ import sys
 import time
 import traceback
 import subprocess
+import shutil
 from typing import Optional, NamedTuple, Sequence
 
 
@@ -174,23 +174,26 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
     filter = build_filter(args)
     paths = sorted(tests.paths(results, result_set, filter))
 
-    if args.run_nr is None:
-        args.run_nr = 0
-
     if len(paths) == 0:
         print("No matching tests found.")
 
     for p in paths:
         res_list = results.get_test_results(p, result_set, args.run_nr)
-        if len(res_list):
-            if len(paths) > 1:
-                print(f"*** LOG FOR {p}, {len(res_list[0].log)} ***")
-            print(res_list[0].log)
+        if len(res_list) == 0:
+            print(f"*** NO LOG FOR {p}")
+            continue
+        for result in res_list:
+            if len(paths) > 1 or len(res_list) > 1:
+                msg = ""
+                if len(paths) > 1:
+                    msg += f" {p}"
+                if len(res_list) > 1:
+                    msg += f" RUN {result.run_nr}"
+                print(f"*** LOG FOR{msg}, {len(result.log)} ***")
+            print(result.log)
             if args.with_dmesg:
                 print("*** KERNEL LOG ***")
-                print(res_list[0].dmesg)
-        else:
-            print(f"*** NO LOG FOR {p}")
+                print(result.dmesg)
 
 
 # -----------------------------------------
@@ -285,6 +288,30 @@ class StringIOWithStderr(io.StringIO):
         sys.stderr.write(s)
 
 
+def get_dmesg_log(start: float) -> str:
+    start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
+    try:
+        sub_sec_start_str = start_str + f"{start % 1:f}"[1:]
+        return subprocess.run(
+            ["journalctl", "--dmesg", "--since", sub_sec_start_str],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True
+        ).stdout
+    except subprocess.CalledProcessError:
+        pass
+    try:
+        return subprocess.run(
+            ["journalctl", "--dmesg", "--since", start_str],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True
+        ).stdout
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
+        return ""
+
+
 def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
     test_deps = dep.read_test_deps(test_dep_path)
 
@@ -330,6 +357,8 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
             start = time.time()
             try:
                 with dep.dep_tracker() as tracker:
+                    old_deps = test_deps.get_deps(p)
+                    tests.check_deps(old_deps)
                     tests.run(p, fix)
                     exes = tracker.executables
                     targets = tracker.targets
@@ -354,6 +383,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
             pass_str = None
             if missing_dep:
+                log.info(f"Missing dependency: {missing_dep}")
                 print(f"MISSING_DEP [{missing_dep}]")
                 pass_str = "MISSING_DEP"
             elif passed:
@@ -363,20 +393,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
                 print("FAIL")
                 pass_str = "FAIL"
 
-            start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
-            start_str += str(start % 1)[1:]
-            dmesg_cmd = ["journalctl", "--dmesg", "--since", start_str]
-            try:
-                dmesg_log = subprocess.run(
-                    dmesg_cmd,
-                    stdout=subprocess.PIPE,
-                    universal_newlines=True,
-                    check=True
-                ).stdout
-            except subprocess.CalledProcessError as e:
-                log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
-                dmesg_log = ""
-
+            dmesg_log = get_dmesg_log(start)
             test_log = buffer.getvalue()
             result = db.TestResult(p, pass_str, test_log, dmesg_log, result_set, elapsed, run_nr)
             results.insert_test_result(result, with_delete=(run_nr == 0))
@@ -388,40 +405,9 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 # 'health' command
 
 
-def is_repo(path):
-    return os.path.isdir(os.path.join(path, ".git"))
-
-
 def which(executable):
-    (return_code, stdout, stderr) = process.run(
-        f"which {executable}", raise_on_fail=False
-    )
-    if return_code == 0:
-        return stdout
-    else:
-        return "-"
-
-
-targets_to_kmodules = {
-    "thin-pool": "dm_thin_pool",
-    "thin": "dm_thin_pool",
-    "linear": "device_mapper",
-    "bufio_test": "dm_bufio_test",
-}
-
-
-def has_target(target):
-    # It may already be loaded or compiled in
-    (_, stdout, stderr) = process.run("dmsetup targets")
-    if target in stdout:
-        return True
-
-    if target not in targets_to_kmodules:
-        raise ValueError("Missing target -> kmodules mapping for '{target}'")
-
-    kmod = targets_to_kmodules[target]
-    (code, stdout, stderr) = process.run(f"modprobe {kmod}", raise_on_fail=False)
-    return code == 0
+    exe_path = shutil.which(executable)
+    return exe_path if exe_path else "-"
 
 
 def cmd_health(tests: test_register.TestRegister, args, results):
@@ -429,7 +415,7 @@ def cmd_health(tests: test_register.TestRegister, args, results):
 
     print("Kernel Repo:\n")
     repo = os.getenv("DMTEST_KERNEL_SOURCE", "linux")
-    found = "present" if is_repo(repo) else "missing"
+    found = "present" if test_register.has_repo(repo) else "missing"
     print(f"{repo.ljust(40,'.')} {found}\n\n")
 
     print("Executables:\n")
@@ -441,7 +427,7 @@ def cmd_health(tests: test_register.TestRegister, args, results):
     print("Targets:\n")
     targets = test_deps.get_all_targets()
     for t in targets:
-        found = "present" if has_target(t) else "missing"
+        found = "present" if test_register.has_target(t) else "missing"
         print(f"{t.ljust(40, '.')} {found}")
 
 
@@ -535,7 +521,7 @@ def command_line_parser():
     result_set_delete_p.set_defaults(func=cmd_result_set_delete)
     result_set_delete_p.add_argument("result_set", help="The result set to delete")
 
-    list_p = subparsers.add_parser("list", help="list tests")
+    list_p = subparsers.add_parser("list", help="list test results")
     list_p.set_defaults(func=cmd_list)
     arg_filter(list_p)
     arg_result_set(list_p)
@@ -580,7 +566,7 @@ def command_line_parser():
     )
     arg_result_set(compare_p)
 
-    list_runs_p = subparsers.add_parser("list-runs", help="list all runs in a result set")
+    list_runs_p = subparsers.add_parser("list-runs", help="list each test run individually")
     list_runs_p.set_defaults(func=cmd_list_runs)
     arg_filter(list_runs_p)
     arg_result_set(list_runs_p)

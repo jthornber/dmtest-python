@@ -1,8 +1,12 @@
+import os
 import re
+import shutil
+import subprocess
 import dmtest.fixture as fixture
 import dmtest.process as process
+import dmtest.dependency_tracker as dep
 
-from typing import NamedTuple, Callable
+from typing import NamedTuple, Callable, Optional
 
 
 def _normalise_path(p):
@@ -38,14 +42,19 @@ class TestRegister:
         path = _normalise_path(path)
         self._tests[path] = Test(dep_fn, callback)
 
-    def register_batch(self, prefix, pairs, dep_fn=None):
+    def register_batch(self, prefix, tests, batch_dep_fn=None):
         # ensure a trailing slash
         prefix = str(prefix)
         if not prefix.endswith("/"):
             prefix += "/"
 
-        for path, callback in pairs:
-            self.register(prefix + path.lstrip("/"), callback, dep_fn=dep_fn)
+        for test in tests:
+            if len(test) == 2:
+                path, callback = test
+                dep_fn = batch_dep_fn
+            else:
+                path, callback, dep_fn = test
+            self.register(prefix + path.lstrip("/"), callback, dep_fn)
 
     def paths(self, results, result_set, filt=None):
         selected = []
@@ -57,6 +66,14 @@ class TestRegister:
 
         return selected
 
+    def check_deps(self, deps: dep.DepTracker):
+        for target in deps.targets:
+            if not has_target(target):
+                raise MissingTestDep(f"{target} target")
+        for exe in deps.executables:
+            if shutil.which(exe) is None:
+                raise MissingTestDep(f"{exe} executable")
+
     def run(self, path, fix):
         t = self._tests[path]
         if t:
@@ -67,26 +84,42 @@ class TestRegister:
             raise ValueError(f"can't find test {path}")
 
 
-def has_target(name):
-    def check():
-        # It may already be loaded
-        (_, stdout, stderr) = process.run(f"dmsetup targets")
-        if name in stdout:
-            return
-
-        try:
-            process.run(f"modprobe dm_{name}")
-        except Exception:
-            raise MissingTestDep(f"dm_{name} kernel module")
-
-    return check
+targets_to_kmodules = {
+    "thin-pool": "dm_thin_pool",
+    "thin": "dm_thin_pool",
+    "linear": "device_mapper",
+    "bufio_test": "dm_bufio_test",
+}
 
 
-def has_exe(name):
-    def check():
-        try:
-            process.run(f"which {name}")
-        except Exception:
-            raise MissingTestDep(f"{name} executable")
+def has_target(target: str) -> bool:
+    # It may already be loaded or compiled in
+    stdout = subprocess.run(
+        ["dmsetup", "targets"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True
+    ).stdout
+    if target in stdout:
+        return True
 
-    return check
+    try:
+        kmod = targets_to_kmodules[target]
+    except KeyError:
+        kmod = f"dm_{target}"
+
+    return subprocess.run(
+        ["modprobe", kmod],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ).returncode == 0
+
+
+def has_repo(path: str) -> bool:
+    return os.path.isdir(os.path.join(path, ".git"))
+
+
+def check_linux_repo():
+    path = os.getenv("DMTEST_KERNEL_SOURCE", "linux")
+    if not has_repo(path):
+        raise MissingTestDep(f"{path} repository")
