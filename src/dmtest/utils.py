@@ -97,7 +97,8 @@ def _dd_size(ifile, ofile):
         return dev_size(ofile)
 
 
-def _dd_device(ifile, ofile, oflag, sectors):
+def _dd_device(ifile, ofile, oflag, sectors, sync=False):
+    conv = ""
     if not sectors:
         sectors = _dd_size(ifile, ofile)
 
@@ -105,14 +106,18 @@ def _dd_device(ifile, ofile, oflag, sectors):
     (count, remainder) = divmod(sectors, block_size)
 
     if count > 0:
+        if sync and remainder == 0:
+            conv = "conv=fsync"
         process.run(
-            f"dd if={ifile} of={ofile} {oflag} bs={block_size * 512} count={count}"
+            f"dd if={ifile} of={ofile} {oflag} {conv} bs={block_size * 512} count={count}"
         )
 
     if remainder > 0:
         # deliberately missing out oflag because we don't want O_DIRECT
+        if sync:
+            conv = "conv=fsync"
         process.run(
-            f"dd if={ifile} of={ofile} bs=512 count={remainder} seek={count * block_size}"
+            f"dd if={ifile} of={ofile} {conv} bs=512 count={remainder} seek={count * block_size}"
         )
 
 
@@ -140,7 +145,7 @@ def _to_path(dev):
 
 
 def wipe_device(dev, sectors=None):
-    _dd_device("/dev/zero", _to_path(dev), "oflag=direct", sectors)
+    _dd_device("/dev/zero", _to_path(dev), "oflag=direct", sectors, sync=True)
 
 
 def dev_size(dev):
