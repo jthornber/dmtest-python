@@ -504,7 +504,8 @@ def arg_run_nr(p):
 
 def command_line_parser():
     parser = argparse.ArgumentParser(
-        prog="dmtest", description="run device-mapper tests"
+        prog="dmtest", description="run device-mapper tests",
+        fromfile_prefix_chars="@", epilog="Arguments starting with @ will be treaded as files containing one argument per line, and will be replaced with the arguments they contain.",
     )
     subparsers = parser.add_subparsers(
         title="command arguments",
