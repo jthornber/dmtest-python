@@ -100,6 +100,20 @@ def cmd_result_set_delete(
 
 
 # -----------------------------------------
+# -----------------------------------------
+# 'result-set-rename' command
+
+
+def cmd_result_set_rename(
+    tests: test_register.TestRegister, args, results: db.TestResults
+):
+    try:
+        results.rename_result_set(args.old_result_set, args.new_result_set)
+    except (db.NoSuchResultSet, db.ResultSetInUse) as e:
+        print(str(e), file=sys.stderr)
+
+
+# -----------------------------------------
 # 'list' command
 
 class AvgResult(NamedTuple):
@@ -504,7 +518,8 @@ def arg_run_nr(p):
 
 def command_line_parser():
     parser = argparse.ArgumentParser(
-        prog="dmtest", description="run device-mapper tests"
+        prog="dmtest", description="run device-mapper tests",
+        fromfile_prefix_chars="@", epilog="Arguments starting with @ will be treaded as files containing one argument per line, and will be replaced with the arguments they contain.",
     )
     subparsers = parser.add_subparsers(
         title="command arguments",
@@ -520,6 +535,17 @@ def command_line_parser():
     )
     result_set_delete_p.set_defaults(func=cmd_result_set_delete)
     result_set_delete_p.add_argument("result_set", help="The result set to delete")
+
+    result_set_rename_p = subparsers.add_parser(
+        "result-set-rename", help="rename result set"
+    )
+    result_set_rename_p.set_defaults(func=cmd_result_set_rename)
+    result_set_rename_p.add_argument(
+        "old_result_set", help="The old result set name"
+    )
+    result_set_rename_p.add_argument(
+        "new_result_set", help="The new result set name"
+    )
 
     list_p = subparsers.add_parser("list", help="list test results")
     list_p.set_defaults(func=cmd_list)

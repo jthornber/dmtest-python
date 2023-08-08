@@ -17,6 +17,10 @@ class NoSuchResultSet(Exception):
     pass
 
 
+class ResultSetInUse(Exception):
+    pass
+
+
 class TestResults:
     def __init__(self, path):
         # Connect to the SQLite database (create the file if it doesn't exist)
@@ -212,5 +216,21 @@ class TestResults:
         # Remove the result set
         cursor.execute(
             "DELETE FROM result_sets WHERE result_set_id = ?", (result_set_id,)
+        )
+        self._conn.commit()
+
+    def rename_result_set(self, old_result_set, new_result_set):
+        cursor = self._conn.cursor()
+        result_set_id = self.get_result_set_id(old_result_set)
+
+        if result_set_id is None:
+            raise NoSuchResultSet(f"Result set '{old_result_set}' not found")
+
+        if self.get_result_set_id(new_result_set) is not None:
+            raise ResultSetInUse(f"Result set '{new_result_set}' already exists")
+
+        cursor.execute(
+            "UPDATE result_sets SET result_set = ? WHERE result_set_id = ?",
+            (new_result_set, result_set_id)
         )
         self._conn.commit()
