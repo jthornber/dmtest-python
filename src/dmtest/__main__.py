@@ -395,6 +395,11 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
                     log.error(f"Triggered while handling Exception: {e}")
             elapsed = time.time() - start
 
+            dmesg_log = get_dmesg_log(start)
+            if "BUG" in dmesg_log:
+                log.error("BUG in kernel log, see dmesg for more info")
+                passed = False
+
             pass_str = None
             if missing_dep:
                 log.info(f"Missing dependency: {missing_dep}")
@@ -407,7 +412,6 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
                 print("FAIL")
                 pass_str = "FAIL"
 
-            dmesg_log = get_dmesg_log(start)
             test_log = buffer.getvalue()
             result = db.TestResult(p, pass_str, test_log, dmesg_log, result_set, elapsed, run_nr)
             results.insert_test_result(result, with_delete=(run_nr == 0))
