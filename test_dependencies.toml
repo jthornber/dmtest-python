@@ -221,3 +221,15 @@ targets = [ "thin", "thin-pool",]
 ["/blk-archive/unit/combinations"]
 executables = [ "blk-archive", "blockdev", "cmp", "dd", "dmsetup", "echo", "losetup", "mkfs.xfs", "mount", "umount", "xfs_repair",]
 targets = [ "linear", "thin", "thin-pool",]
+
+["/thin/fs-bench/fio/thick"]
+executables = [ "blockdev", "dmsetup", "echo", "fio", "fsck.ext4", "mkfs.ext4", "mount", "umount",]
+targets = [ "linear",]
+
+["/thin/fs-bench/fio/thin"]
+executables = [ "blockdev", "dd", "dmsetup", "echo", "fio", "fsck.ext4", "mkfs.ext4", "mount", "umount",]
+targets = [ "thin", "thin-pool",]
+
+["/thin/fs-bench/fio/thin-preallocated"]
+executables = [ "blockdev", "dd", "dmsetup", "echo", "fio", "fsck.ext4", "mkfs.ext4", "mount", "umount",]
+targets = [ "thin", "thin-pool",]
