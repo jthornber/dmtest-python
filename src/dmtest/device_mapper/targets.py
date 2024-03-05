@@ -1,5 +1,4 @@
-def run(*args):
-    pass
+from dmtest.process import run
 
 
 class Target:
@@ -124,7 +123,7 @@ class CacheTarget(Target):
         self.metadata_dev = metadata_dev
 
     def post_remove_check(self):
-        ProcessControl.run(f"cache_check {self.metadata_dev}")
+        run(f"cache_check {self.metadata_dev}")
 
 
 class WriteCacheTarget(Target):
@@ -140,7 +139,7 @@ class EraTarget(Target):
         self.metadata_dev = metadata_dev
 
     def post_remove_check(self):
-        ProcessControl.run(f"era_check {self.metadata_dev}")
+        run(f"era_check {self.metadata_dev}")
 
 
 class FakeDiscardTarget(Target):
