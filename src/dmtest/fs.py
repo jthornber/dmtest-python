@@ -1,5 +1,4 @@
 import dmtest.process as process
-import dmtest.utils as utils
 
 from contextlib import contextmanager
 import os
@@ -9,6 +8,15 @@ class BaseFS:
     def __init__(self, dev, mount_point=None):
         self._dev = dev
         self._mount_point = mount_point
+
+    def mkfs_cmd(self, opts):
+        raise NotImplementedError("mkfs_cmd() not implemented")
+
+    def check_cmd(self):
+        raise NotImplementedError("check_cmd() not implemented")
+
+    def mount_cmd(self, mount_point, opts):
+        raise NotImplementedError("mount_cmd() not implemented")
 
     def format(self, **opts):
         cmd = self.mkfs_cmd(opts)
@@ -21,6 +29,8 @@ class BaseFS:
         _ = process.run(cmd)
 
     def umount(self):
+        if not self._mount_point:
+            raise ValueError("Mount point is not initialized")
         process.run(f"umount {self._mount_point}")
         os.rmdir(self._mount_point)
         self.check()
@@ -32,9 +42,10 @@ class BaseFS:
     @contextmanager
     def mount_and_chdir(self, mount_point, **opts):
         self.mount(mount_point, **opts)
+        cwd = os.getcwd()  # store current working directory
         try:
-            cwd = os.getcwd()  # store current working directory
-            os.chdir(mount_point)  # change current working directory to mount point
+            # change current working directory to mount point
+            os.chdir(mount_point)
             yield
         finally:
             os.chdir(cwd)  # restore original working directory
