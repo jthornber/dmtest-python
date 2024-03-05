@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-import logging
 import random
 
 import dmtest.device_mapper.interface as dm
@@ -63,7 +62,7 @@ class Dev:
 
     def event_nr(self):
         output = dm.status(self._name, "-v")
-        dm.extract_event_nr(output)
+        dm.parse_event_nr(output)
 
     def __enter__(self):
         return self

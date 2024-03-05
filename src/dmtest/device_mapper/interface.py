@@ -29,16 +29,20 @@ def load(name, table):
 def load_ro(name, table):
     register_targets(table)
     with utils.TempFile() as tf:
-        f = tf.file()
+        f = tf.file
         lines = table.table_lines()
         log.info(f"table file '{tf.path}':\n{lines}")
         f.write(lines)
         f.flush()
-        run(f"dmsetup load --readonly {name} {tf.path()}")
+        run(f"dmsetup load --readonly {name} {tf.path}")
 
 
 def suspend(name):
     run(f"dmsetup suspend {name}")
+
+
+def suspend_noflush(name):
+    run(f"dmsetup suspend --noflush {name}")
 
 
 def resume(name):

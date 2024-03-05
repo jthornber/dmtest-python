@@ -49,7 +49,7 @@ class TempFile:
         return self._path
 
 
-def retry_if_fails(func, *, max_retries=1, retry_delay=1):
+def retry_if_fails(func, *, max_retries=1, retry_delay=1.0):
     """
     Calls the given function and retries it until it succeeds or the maximum
     number of retries is reached.
@@ -57,7 +57,7 @@ def retry_if_fails(func, *, max_retries=1, retry_delay=1):
     Parameters:
     func (function): The function to call.
     max_retries (int): The maximum number of times to retry the function.
-    retry_delay (int): The number of seconds to wait between retries.
+    retry_delay (float): The number of seconds to wait between retries.
 
     Returns:
     The return value of the function if it succeeds.
