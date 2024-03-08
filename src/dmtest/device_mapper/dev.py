@@ -43,7 +43,7 @@ class Dev:
         dm.remove(self._name)
 
     def message(self, sector, *args):
-        dm.message(self._name, sector, *args)
+        return dm.message(self._name, sector, *args)
 
     def status(self, noflush=False):
         if noflush:

@@ -233,3 +233,7 @@ targets = [ "thin", "thin-pool",]
 ["/thin/fs-bench/fio/thin-preallocated"]
 executables = [ "blockdev", "dd", "dmsetup", "echo", "fio", "fsck.ext4", "mkfs.ext4", "mount", "umount",]
 targets = [ "thin", "thin-pool",]
+
+["/vdo/creation/create01"]
+executables = [ "blockdev", "dmsetup", "echo", 'vdoformat']
+targets = [ "vdo",]

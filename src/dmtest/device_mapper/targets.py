@@ -175,3 +175,24 @@ class FakeDiscardTarget(Target):
 class BufioTestTarget(Target):
     def __init__(self, sector_count, dev):
         super().__init__("bufio_test", sector_count, dev)
+
+
+class VDOTarget(Target):
+    def __init__(
+        self,
+        sector_count,
+        dev,
+        physical_blocks,
+        mode,
+        block_map_cache,
+        block_map_period,
+        opts,
+    ):
+
+        args = (
+            ["V4", dev, physical_blocks, mode, block_map_cache, block_map_period]
+            + [str(k) + " " + str(v) for k, v in opts.items()]
+        )
+
+        super().__init__("vdo", sector_count, *args)
+
