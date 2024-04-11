@@ -87,7 +87,7 @@ def ensure_elapsed(thunk, seconds):
     elapsed = time.time() - start
     if elapsed < seconds:
         time.sleep(seconds - elapsed)
-    r
+    return r
 
 
 def _dd_size(ifile, ofile):

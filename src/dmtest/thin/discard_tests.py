@@ -1,4 +1,3 @@
-from dmtest.assertions import assert_raises
 from dmtest.thin.utils import standard_stack, standard_pool
 import dmtest.blktrace as bt
 import dmtest.device_mapper.dev as dmdev
@@ -24,8 +23,8 @@ def read_param(dev, param):
 class DiscardLimits:
     def __init__(self, dev):
         self.dev = Path(dev).resolve().name
-        self.granularity = read_param("granularity")
-        self.max_bytes = read_param("max_bytes")
+        self.granularity = read_param(self.dev, "granularity")
+        self.max_bytes = read_param(self.dev, "max_bytes")
         self.supported = self.max_bytes > 0
 
 
@@ -35,7 +34,7 @@ def ensure_discardable(dev):
         raise exceptions.MissingDependency("data dev is not discardable")
 
 
-def unmapping_check(discardable: bool, passdown: bool):
+def unmapping_check(_discardable: bool, _passdown: bool):
     pass
 
 
@@ -51,7 +50,7 @@ def write_metadata(file, tree: ET.ElementTree):
 def t_blktrace(fix):
     with standard_pool(fix, block_size=524288) as pool:
         with ps.new_thin(pool, units.gig(4), 0) as thin:
-            trace = bt.BlkTrace([thin])
+            trace = bt.BlkTrace([thin.path])
             with trace:
                 utils.wipe_device(thin)
     tree = read_metadata(fix.cfg["metadata_dev"])
@@ -66,7 +65,7 @@ def t_blktrace(fix):
 def t_unmaps_with_passdown_discardable_pool(fix):
     with standard_pool(fix) as pool:
         with ps.new_thin(pool, units.gig(4), 0) as thin:
-            trace = bt.BlkTrace([thin])
+            trace = bt.BlkTrace([thin.path])
             with trace:
                 utils.wipe_device(thin)
 

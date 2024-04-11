@@ -40,7 +40,7 @@ class BlkTrace:
         blktrace_cmd = ["blktrace", "-o", "-"]
 
         for dev in devs:
-            blktrace_cmd.extend(["-d", dev.path])
+            blktrace_cmd.extend(["-d", dev])
 
         if complete:
             blktrace_cmd.extend(["-a", "complete"])
@@ -66,12 +66,11 @@ class BlkTrace:
                 blkparse_cmd,
                 stdin=self._blktrace.stdout,
                 stdout=subprocess.PIPE,
-                universal_newlines=True
+                universal_newlines=True,
             )
         except Exception:
             self.stop_blktrace()
             raise
-
 
     def stop_blktrace(self):
         self._blktrace.stdout.close()
@@ -82,7 +81,7 @@ class BlkTrace:
         time.sleep(1)  # why do we need this?  udev again?
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, _exc_type, _exc_value, _traceback):
         self.stop_blktrace()
         log.info("completed blktrace")
 

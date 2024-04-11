@@ -30,7 +30,7 @@ class TestResults:
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, _exc_type, _exc_value, _traceback):
         self._conn.close()
 
     def _create_tables(self):
@@ -149,7 +149,9 @@ class TestResults:
         )
         self._conn.commit()
 
-    def get_test_results(self, test_name: str, result_set: str, run_nr: Optional[int] = None) -> List[TestResult]:
+    def get_test_results(
+        self, test_name: str, result_set: str, run_nr: Optional[int] = None
+    ) -> List[TestResult]:
         test_name_id = self.get_test_name_id(test_name)
         result_set_id = self.get_result_set_id(result_set)
         sql_cmd = """
@@ -231,6 +233,6 @@ class TestResults:
 
         cursor.execute(
             "UPDATE result_sets SET result_set = ? WHERE result_set_id = ?",
-            (new_result_set, result_set_id)
+            (new_result_set, result_set_id),
         )
         self._conn.commit()
