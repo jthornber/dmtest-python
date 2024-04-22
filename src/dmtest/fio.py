@@ -19,7 +19,6 @@ def default_fio_config():
         "size": "5G",
         "numjobs": "1",
         "direct": "1",
-        "gtod_reduce": "1",
         "iodepth": "64",
         "runtime": "20",
     }
@@ -32,18 +31,23 @@ def default_fio_config():
     return config
 
 
+def log_contents(banner, path):
+    with open(path, "r") as file:
+        log.info(f"{banner}:\n{file.read()}")
+
+
 def run_fio(dev, fio_config):
     config_path = tempfile.mkstemp()[1]
     with open(config_path, "w") as cfg:
         fio_config.write(cfg, False)
+    log_contents("fio config file", config_path)
 
     out_path = tempfile.mkstemp()[1]
-    process.run(f"fio --filename={dev} --output={out_path} {config_path}")
+    process.run(
+        f"fio --filename={dev} --output={out_path} --output-format=json+ {config_path}"
+    )
 
-    # read the contents of out_path and log it.
-    with open(out_path, "r") as out_file:
-        out_contents = out_file.read()
-        log.info(out_contents)
+    log_contents("fio output", out_path)
 
     # unlink config_path and out_path
     os.unlink(config_path)
