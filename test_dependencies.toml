@@ -233,3 +233,15 @@ targets = [ "thin", "thin-pool",]
 ["/thin/fs-bench/fio/thin-preallocated"]
 executables = [ "blockdev", "dd", "dmsetup", "echo", "fio", "fsck.ext4", "mkfs.ext4", "mount", "umount",]
 targets = [ "thin", "thin-pool",]
+
+["/thin/fio/thick"]
+executables = [ "blockdev", "dmsetup", "fio",]
+targets = [ "linear",]
+
+["/thin/fio/thin"]
+executables = [ "blockdev", "dd", "dmsetup", "fio",]
+targets = [ "thin", "thin-pool",]
+
+["/thin/fio/thin-preallocated"]
+executables = [ "blockdev", "dd", "dmsetup", "fio",]
+targets = [ "thin", "thin-pool",]
