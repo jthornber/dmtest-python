@@ -77,7 +77,7 @@ eg 'bufio-rewrite'.
 # 'result-sets' command
 
 
-def cmd_result_sets(tests: test_register.TestRegister, args, results: db.TestResults):
+def cmd_result_sets(_tests: test_register.TestRegister, _args, results: db.TestResults):
     for rs in results.get_result_sets():
         print(f"    {rs}")
 
@@ -87,7 +87,7 @@ def cmd_result_sets(tests: test_register.TestRegister, args, results: db.TestRes
 
 
 def cmd_result_set_delete(
-    tests: test_register.TestRegister, args, results: db.TestResults
+    _tests: test_register.TestRegister, args, results: db.TestResults
 ):
     try:
         results.delete_result_set(args.result_set)
@@ -101,7 +101,7 @@ def cmd_result_set_delete(
 
 
 def cmd_result_set_rename(
-    tests: test_register.TestRegister, args, results: db.TestResults
+    _tests: test_register.TestRegister, args, results: db.TestResults
 ):
     try:
         results.rename_result_set(args.old_result_set, args.new_result_set)
@@ -111,6 +111,7 @@ def cmd_result_set_rename(
 
 # -----------------------------------------
 # 'list' command
+
 
 class AvgResult(NamedTuple):
     pass_fail: Optional[str]
@@ -128,7 +129,7 @@ def average_results(res_list: Sequence[db.TestResult]) -> Optional[AvgResult]:
             res_list[0].pass_fail,
             1 if res_list[0].pass_fail == "PASS" else 0,
             1,
-            res_list[0].duration
+            res_list[0].duration,
         )
 
     nr_pass = 0
@@ -149,7 +150,7 @@ def average_results(res_list: Sequence[db.TestResult]) -> Optional[AvgResult]:
         pass_fail if all_same else None,
         nr_pass,
         len(res_list),
-        pass_duration / nr_pass if nr_pass > 0 else all_duration / len(res_list)
+        pass_duration / nr_pass if nr_pass > 0 else all_duration / len(res_list),
     )
 
 
@@ -170,7 +171,9 @@ def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
         elif result.nr_runs == 1:
             print(f"{result.pass_fail} [{result.duration:.2f}s]")
         elif result.pass_fail:
-            print(f"{result.nr_runs}/{result.nr_runs} {result.pass_fail} [{result.duration:.2f}s]")
+            print(
+                f"{result.nr_runs}/{result.nr_runs} {result.pass_fail} [{result.duration:.2f}s]"
+            )
         else:
             print(f"{result.nr_pass}/{result.nr_runs} PASS [{result.duration:.2f}s]")
 
@@ -209,12 +212,23 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
 # -----------------------------------------
 # 'compare' command
 
-def can_compare_times(old: Optional[AvgResult], new: Optional[AvgResult]) -> bool:
+
+# This code deliberately mixes validation with actions so the pyright linter
+# is aware that new and old are non-null.  Apologies to Ben for spoiling his code.
+def print_compare_times(old: Optional[AvgResult], new: Optional[AvgResult]):
     if old is None or new is None:
-        return False
-    if old.nr_pass != 0 and new.nr_pass != 0:
-        return True
-    return old.pass_fail and old.pass_fail == new.pass_fail
+        print("")
+        return
+
+    if not old.pass_fail and old.nr_pass == 0 and new.nr_pass == 0:
+        print("")
+        return
+
+    if old.pass_fail == new.pass_fail:
+        diff = new.duration - old.duration
+        print(f"[{diff * 100 / old.duration:+.0f}% {diff:+.2f}s]")
+    else:
+        print("")
 
 
 def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults):
@@ -237,25 +251,29 @@ def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults
             if old_result.pass_fail:
                 print(f"{old_result.pass_fail} => ", end="")
             else:
-                print(f"{old_result.nr_pass / old_result.nr_runs * 100:.0f}% PASS => ", end="")
+                print(
+                    f"{old_result.nr_pass / old_result.nr_runs * 100:.0f}% PASS => ",
+                    end="",
+                )
         else:
             print("- => ", end="")
         if new_result:
             if new_result.pass_fail:
                 print(f"{new_result.pass_fail} ", end="")
             else:
-                print(f"{new_result.nr_pass / new_result.nr_runs * 100:.0f}% PASS ", end="")
+                print(
+                    f"{new_result.nr_pass / new_result.nr_runs * 100:.0f}% PASS ",
+                    end="",
+                )
         else:
             print("- ", end="")
-        if can_compare_times(old_result, new_result):
-            diff = new_result.duration - old_result.duration
-            print(f"[{diff * 100 / old_result.duration:+.0f}% {diff:+.2f}s]")
-        else:
-            print("")
+
+        print_compare_times(old_result, new_result)
 
 
 # -----------------------------------------
 # 'list-runs' command
+
 
 def cmd_list_runs(tests: test_register.TestRegister, args, results: db.TestResults):
     result_set = get_result_set(args)
@@ -295,7 +313,7 @@ class StringIOWithStderr(io.StringIO):
         super().write(s)
 
         # Also write to stdout
-        sys.stderr.write(s)
+        return sys.stderr.write(s)
 
 
 def get_dmesg_log(start: float) -> str:
@@ -306,7 +324,7 @@ def get_dmesg_log(start: float) -> str:
             ["journalctl", "--dmesg", "--since", sub_sec_start_str],
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            check=True
+            check=True,
         ).stdout
     except subprocess.CalledProcessError:
         pass
@@ -315,7 +333,7 @@ def get_dmesg_log(start: float) -> str:
             ["journalctl", "--dmesg", "--since", start_str],
             stdout=subprocess.PIPE,
             universal_newlines=True,
-            check=True
+            check=True,
         ).stdout
     except subprocess.CalledProcessError as e:
         log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
@@ -383,7 +401,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
                     log.error(f"Exception caught: \n{traceback.format_exc()}\n")
                 else:
                     log.error(f"Exception caught: {e}")
-                while e.__cause__ or e.__context__:
+                while e and (e.__cause__ or e.__context__):
                     if e.__cause__:
                         e = e.__cause__
                     else:
@@ -409,7 +427,9 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
                 pass_str = "FAIL"
 
             test_log = buffer.getvalue()
-            result = db.TestResult(p, pass_str, test_log, dmesg_log, result_set, elapsed, run_nr)
+            result = db.TestResult(
+                p, pass_str, test_log, dmesg_log, result_set, elapsed, run_nr
+            )
             results.insert_test_result(result, with_delete=(run_nr == 0))
 
     dep.write_test_deps(test_dep_path, test_deps)
@@ -424,7 +444,7 @@ def which(executable):
     return exe_path if exe_path else "-"
 
 
-def cmd_health(tests: test_register.TestRegister, args, results):
+def cmd_health(_tests: test_register.TestRegister, args, _results):
     test_deps = dep.read_test_deps(test_dep_path)
 
     print("Kernel Repo:\n")
@@ -518,8 +538,10 @@ def arg_run_nr(p):
 
 def command_line_parser():
     parser = argparse.ArgumentParser(
-        prog="dmtest", description="run device-mapper tests",
-        fromfile_prefix_chars="@", epilog="Arguments starting with @ will be treaded as files containing one argument per line, and will be replaced with the arguments they contain.",
+        prog="dmtest",
+        description="run device-mapper tests",
+        fromfile_prefix_chars="@",
+        epilog="Arguments starting with @ will be treaded as files containing one argument per line, and will be replaced with the arguments they contain.",
     )
     subparsers = parser.add_subparsers(
         title="command arguments",
@@ -540,12 +562,8 @@ def command_line_parser():
         "result-set-rename", help="rename result set"
     )
     result_set_rename_p.set_defaults(func=cmd_result_set_rename)
-    result_set_rename_p.add_argument(
-        "old_result_set", help="The old result set name"
-    )
-    result_set_rename_p.add_argument(
-        "new_result_set", help="The new result set name"
-    )
+    result_set_rename_p.add_argument("old_result_set", help="The old result set name")
+    result_set_rename_p.add_argument("new_result_set", help="The new result set name")
 
     list_p = subparsers.add_parser("list", help="list test results")
     list_p.set_defaults(func=cmd_list)
@@ -592,7 +610,9 @@ def command_line_parser():
     )
     arg_result_set(compare_p)
 
-    list_runs_p = subparsers.add_parser("list-runs", help="list each test run individually")
+    list_runs_p = subparsers.add_parser(
+        "list-runs", help="list each test run individually"
+    )
     list_runs_p.set_defaults(func=cmd_list_runs)
     arg_filter(list_runs_p)
     arg_result_set(list_runs_p)
