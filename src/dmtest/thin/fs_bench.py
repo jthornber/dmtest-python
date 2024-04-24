@@ -19,7 +19,7 @@ import threading
 import logging as log
 import time
 
-#---------------------------------
+# ---------------------------------
 
 fio_config = """
 [global]
@@ -32,14 +32,14 @@ direct=1
 gtod_reduce=1
 norandommap
 iodepth=64
-numjobs=16
-runtime=60
+numjobs=1
+runtime=20
  
 [mix]
 rw=randrw
-stonewall
 timeout=30
 """
+
 
 def run_fio(dev, fs_type, fio_config, out_file):
     # convert out_file to be absolute since we're about to chdir
@@ -53,18 +53,20 @@ def run_fio(dev, fs_type, fio_config, out_file):
             f.write(fio_config)
         process.run(f"fio fio.config --output={out_file}")
 
+
 def t_fio_thick(fix):
     size = units.gig(90)
 
     vm = tvm.VM()
-    vm.add_allocation_volume(fix.cfg['data_dev'])
+    vm.add_allocation_volume(fix.cfg["data_dev"])
     vm.add_volume(tvm.LinearVolume("thick", size))
 
     with dmdev.dev(vm.table("thick")) as thick:
         time.sleep(1)
 
         outfile = "fio.out"
-        run_fio(thick, fs.Ext4, fio_config, outfile)        
+        run_fio(thick, fs.Ext4, fio_config, outfile)
+
 
 def t_fio_thin(fix):
     size = units.gig(90)
@@ -75,6 +77,7 @@ def t_fio_thin(fix):
             outfile = "fio.out"
             run_fio(thin, fs.Ext4, fio_config, outfile)
 
+
 def t_fio_thin_preallocated(fix):
     size = units.gig(90)
 
@@ -83,6 +86,7 @@ def t_fio_thin_preallocated(fix):
             utils.wipe_device(thin)
             outfile = "fio.out"
             run_fio(thin, fs.Ext4, fio_config, outfile)
+
 
 def register(tests):
     tests.register_batch(

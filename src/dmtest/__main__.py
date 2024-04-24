@@ -96,7 +96,6 @@ def cmd_result_set_delete(
 
 
 # -----------------------------------------
-# -----------------------------------------
 # 'result-set-rename' command
 
 
@@ -340,6 +339,69 @@ def get_dmesg_log(start: float) -> str:
         return ""
 
 
+def single_run(paths, buffer, tests, test_deps, result_set, results, run_nr):
+    formatter = TreeFormatter()
+    for p in paths:
+        buffer.seek(0)
+        buffer.truncate()
+
+        print(f"{formatter.tree_line(p)}", end="", flush=True)
+        log.info(f"Running '{p}'")
+
+        fix = dmtest.fixture.Fixture()
+        passed = True
+        missing_dep = None
+        start = time.time()
+        try:
+            with dep.dep_tracker() as tracker:
+                old_deps = test_deps.get_deps(p)
+                tests.check_deps(old_deps)
+                tests.run(p, fix)
+                exes = tracker.executables
+                targets = tracker.targets
+                test_deps.set_deps(p, exes, targets)
+
+        except test_register.MissingTestDep as e:
+            missing_dep = e
+
+        except Exception as e:
+            passed = False
+            if bool(os.getenv("DMTEST_PY_VERBOSE_TB", False)):
+                log.error(f"Exception caught: \n{traceback.format_exc()}\n")
+            else:
+                log.error(f"Exception caught: {e}")
+            while e and (e.__cause__ or e.__context__):
+                if e.__cause__:
+                    e = e.__cause__
+                else:
+                    e = e.__context__
+                log.error(f"Triggered while handling Exception: {e}")
+        elapsed = time.time() - start
+
+        dmesg_log = get_dmesg_log(start)
+        if "BUG" in dmesg_log:
+            log.error("BUG in kernel log, see dmesg for more info")
+            passed = False
+
+        pass_str = None
+        if missing_dep:
+            log.info(f"Missing dependency: {missing_dep}")
+            print(f"MISSING_DEP [{missing_dep}]")
+            pass_str = "MISSING_DEP"
+        elif passed:
+            print(f"PASS [{elapsed:.2f}s]")
+            pass_str = "PASS"
+        else:
+            print("FAIL")
+            pass_str = "FAIL"
+
+        test_log = buffer.getvalue()
+        result = db.TestResult(
+            p, pass_str, test_log, dmesg_log, result_set, elapsed, run_nr
+        )
+        results.insert_test_result(result, with_delete=(run_nr == 0))
+
+
 def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
     test_deps = dep.read_test_deps(test_dep_path)
 
@@ -369,68 +431,9 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
     )
 
     for run_nr in range(args.nr_runs):
-        formatter = TreeFormatter()
         if args.nr_runs > 1:
             print(f"*** Run: {run_nr} ***")
-        for p in paths:
-            buffer.seek(0)
-            buffer.truncate()
-
-            print(f"{formatter.tree_line(p)}", end="", flush=True)
-            log.info(f"Running '{p}'")
-
-            fix = dmtest.fixture.Fixture()
-            passed = True
-            missing_dep = None
-            start = time.time()
-            try:
-                with dep.dep_tracker() as tracker:
-                    old_deps = test_deps.get_deps(p)
-                    tests.check_deps(old_deps)
-                    tests.run(p, fix)
-                    exes = tracker.executables
-                    targets = tracker.targets
-                    test_deps.set_deps(p, exes, targets)
-
-            except test_register.MissingTestDep as e:
-                missing_dep = e
-
-            except Exception as e:
-                passed = False
-                if bool(os.getenv("DMTEST_PY_VERBOSE_TB", False)):
-                    log.error(f"Exception caught: \n{traceback.format_exc()}\n")
-                else:
-                    log.error(f"Exception caught: {e}")
-                while e and (e.__cause__ or e.__context__):
-                    if e.__cause__:
-                        e = e.__cause__
-                    else:
-                        e = e.__context__
-                    log.error(f"Triggered while handling Exception: {e}")
-            elapsed = time.time() - start
-
-            dmesg_log = get_dmesg_log(start)
-            if "BUG" in dmesg_log:
-                log.error("BUG in kernel log, see dmesg for more info")
-                passed = False
-
-            pass_str = None
-            if missing_dep:
-                log.info(f"Missing dependency: {missing_dep}")
-                print(f"MISSING_DEP [{missing_dep}]")
-                pass_str = "MISSING_DEP"
-            elif passed:
-                print(f"PASS [{elapsed:.2f}s]")
-                pass_str = "PASS"
-            else:
-                print("FAIL")
-                pass_str = "FAIL"
-
-            test_log = buffer.getvalue()
-            result = db.TestResult(
-                p, pass_str, test_log, dmesg_log, result_set, elapsed, run_nr
-            )
-            results.insert_test_result(result, with_delete=(run_nr == 0))
+        single_run(paths, buffer, tests, test_deps, result_set, results, run_nr)
 
     dep.write_test_deps(test_dep_path, test_deps)
 
