@@ -237,3 +237,15 @@ targets = [ "thin", "thin-pool",]
 ["/vdo/creation/create01"]
 executables = [ "blockdev", "dmsetup", "echo", 'vdoformat']
 targets = [ "vdo",]
+
+["/vdo/dedupe/dedupe0"]
+executables = [ "blockdev", "dmsetup", "echo", 'vdoformat', "fsck.ext4", "mkfs.ext4", "mount", "umount",]
+targets = [ "vdo",]
+
+["/vdo/dedupe/dedupe50"]
+executables = [ "blockdev", "dmsetup", "echo", 'vdoformat', "fsck.ext4", "mkfs.ext4", "mount", "umount",]
+targets = [ "vdo",]
+
+["/vdo/dedupe/dedupe75"]
+executables = [ "blockdev", "dmsetup", "echo", 'vdoformat', "fsck.ext4", "mkfs.ext4", "mount", "umount",]
+targets = [ "vdo",]
