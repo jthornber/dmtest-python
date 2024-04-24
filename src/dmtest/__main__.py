@@ -8,10 +8,12 @@ import dmtest.blk_archive.unit as blk_archive_unit
 import dmtest.thin.register as thin_register
 import dmtest.dependency_tracker as dep
 import dmtest.test_filter as filter
+import dmtest.log_label as ll
 import io
 import itertools
 import logging as log
 import os
+import re
 import sys
 import time
 import traceback
@@ -181,6 +183,13 @@ def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
 # 'log' command
 
 
+def print_log(args, log):
+    if args.label:
+        ll.filter_log(log, args.label)
+    else:
+        print(log)
+
+
 def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
     result_set = get_result_set(args)
     filter = build_filter(args)
@@ -202,7 +211,7 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
                 if len(res_list) > 1:
                     msg += f" RUN {result.run_nr}"
                 print(f"*** LOG FOR{msg}, {len(result.log)} ***")
-            print(result.log)
+            print_log(args, result.log)
             if args.with_dmesg:
                 print("*** KERNEL LOG ***")
                 print(result.dmesg)
@@ -583,6 +592,11 @@ def command_line_parser():
         "--with-dmesg",
         help="Print the kernel log as well",
         action="store_true",
+    )
+    log_p.add_argument(
+        "--label",
+        help="extract only the labelled part of the log",
+        type=str,
     )
 
     run_p = subparsers.add_parser("run", help="run tests")

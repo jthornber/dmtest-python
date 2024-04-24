@@ -1,4 +1,5 @@
 import dmtest.process as process
+import dmtest.log_label as ll
 
 import configparser
 import logging as log
@@ -37,21 +38,25 @@ def log_contents(banner, path):
 
 
 def run_fio(dev, fio_config):
-    config_path = tempfile.mkstemp()[1]
-    with open(config_path, "w") as cfg:
-        fio_config.write(cfg, False)
-    log_contents("fio config file", config_path)
+    with ll.log_label("fio"):
+        config_path = tempfile.mkstemp()[1]
+        with open(config_path, "w") as cfg:
+            fio_config.write(cfg, False)
 
-    out_path = tempfile.mkstemp()[1]
-    process.run(
-        f"fio --filename={dev} --output={out_path} --output-format=json+ {config_path}"
-    )
+        with ll.log_label("config"):
+            log_contents("fio config file", config_path)
 
-    log_contents("fio output", out_path)
+        out_path = tempfile.mkstemp()[1]
+        process.run(
+            f"fio --filename={dev} --output={out_path} --output-format=json+ {config_path}"
+        )
 
-    # unlink config_path and out_path
-    os.unlink(config_path)
-    os.unlink(out_path)
+        with ll.log_label("results"):
+            log_contents("fio output", out_path)
+
+        # unlink config_path and out_path
+        os.unlink(config_path)
+        os.unlink(out_path)
 
 
 # ---------------------------------
