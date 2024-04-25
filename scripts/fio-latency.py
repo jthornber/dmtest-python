@@ -137,6 +137,81 @@ def get_max_latency(results):
     return max(10, max(latencies))
 
 
+def get_max_bin_count(results):
+    counts = []
+    for fio in results:
+        counts += list(fio.read_bins.values())
+        counts += list(fio.write_bins.values())
+
+    return safe_log(max(10, max(counts)))
+
+
+def get_max_bw(results):
+    max_bws = []
+    for fio in results:
+        max_bws.append(fio.read_bw)
+        max_bws.append(fio.write_bw)
+
+    return max(max_bws)
+
+
+def get_max_iops(results):
+    max_iops = []
+    for fio in results:
+        max_iops.append(fio.read_iops)
+        max_iops.append(fio.write_iops)
+
+    return max(max_iops)
+
+
+def bar(char, width, count, max_count):
+    fraction = count / max_count
+    nr_chars = int(float(width) * fraction)
+    return char * nr_chars
+
+
+def plot_latency(results, terminal_width):
+    max_latency = math.ceil(get_max_latency(results))
+    max_counts = math.ceil(get_max_bin_count(results))
+
+    for fio in results:
+        print(f"{fio.name}")
+
+        fig = plotille.Figure()
+        fig.width = terminal_width
+        fig.height = 15
+        fig.color_mode = "byte"
+        fig.set_x_limits(min_=0, max_=max_latency)
+        fig.set_y_limits(min_=1, max_=max_counts)
+        fig.x_label = "Latency (ms)"
+        fig.y_label = "ln2(count)"
+
+        plot_bins(fig, fio.read_bins, "read")
+        plot_bins(fig, fio.write_bins, "write")
+        print(fig.show(legend=False))
+        print("")
+
+
+def plot_bandwidth(results, terminal_width):
+    max_bw = get_max_bw(results)
+    print("Bandwidth")
+    for fio in results:
+        print(f"  {fio.name}: {int(fio.read_bw)}/{int(fio.write_bw)}")
+        print(f"    r: {bar('-', terminal_width, fio.read_bw, max_bw)}")
+        print(f"    w: {bar('-', terminal_width, fio.write_bw, max_bw)}")
+    print("")
+
+
+def plot_iops(results, terminal_width):
+    max_iops = get_max_iops(results)
+    print("IOPS")
+    for fio in results:
+        print(f"  {fio.name}: {int(fio.read_iops)}/{int(fio.write_iops)}")
+        print(f"    r: {bar('-', terminal_width, fio.read_iops, max_iops)}")
+        print(f"    w: {bar('-', terminal_width, fio.write_iops, max_iops)}")
+    print("")
+
+
 def main():
     terminal_width = 160
 
@@ -145,20 +220,9 @@ def main():
     args = parser.parse_args()
 
     results = read_results(args.filenames)
-    max_latency = get_max_latency(results)
-
-    for fio in results:
-        fig = plotille.Figure()
-        fig.width = terminal_width
-        fig.height = 15
-        fig.color_mode = "byte"
-        fig.set_x_limits(min_=0, max_=max_latency)
-        fig.x_label = "Latency (ms)"
-        fig.y_label = "ln2(count)"
-
-        plot_bins(fig, fio.read_bins, "read")
-        plot_bins(fig, fio.write_bins, "write")
-        print(fig.show(legend=False))
+    plot_bandwidth(results, terminal_width)
+    plot_iops(results, terminal_width)
+    plot_latency(results, terminal_width)
 
 
 if __name__ == "__main__":
