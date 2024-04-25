@@ -9,7 +9,7 @@ import os
 # ---------------------------------
 
 
-def default_fio_config():
+def default_fio_config(name: str):
     config = configparser.ConfigParser()
 
     config["global"] = {
@@ -25,6 +25,7 @@ def default_fio_config():
     }
 
     config["mix"] = {
+        "name": name,
         "rw": "randrw",
         "timeout": "30",
     }

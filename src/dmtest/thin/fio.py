@@ -20,7 +20,7 @@ def t_fio_thick(fix):
 
     with dmdev.dev(vm.table("thick")) as thick:
         time.sleep(1)
-        fio.run_fio(thick, fio.default_fio_config())
+        fio.run_fio(thick, fio.default_fio_config("linear target"))
 
 
 def t_fio_thin(fix):
@@ -29,7 +29,7 @@ def t_fio_thin(fix):
     with standard_pool(fix) as pool:
         with ps.new_thin(pool, size, 0) as thin:
             time.sleep(1)
-            fio.run_fio(thin, fio.default_fio_config())
+            fio.run_fio(thin, fio.default_fio_config("thin target"))
 
 
 def t_fio_thin_preallocated(fix):
@@ -38,7 +38,7 @@ def t_fio_thin_preallocated(fix):
     with standard_pool(fix) as pool:
         with ps.new_thin(pool, size, 0) as thin:
             utils.wipe_device(thin)
-            fio.run_fio(thin, fio.default_fio_config())
+            fio.run_fio(thin, fio.default_fio_config("thin target, preallocated"))
 
 
 def register(tests):
