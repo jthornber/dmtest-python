@@ -66,24 +66,10 @@ def read_fio_results(filename):
     )
 
 
-# def extract_clat_data(fio_data, io_dir):
-#     # Extracting latency data (in microseconds)
-#     latencies = fio_data["jobs"][0][io_dir]["clat_ns"]["percentile"]
-#     # Convert nanoseconds to milliseconds for better readability
-#     latencies_ms = {k: v / 1000000 for k, v in latencies.items()}
-#     return latencies_ms
-
-
 def extract_bins(fio_data, io_dir, merge_count):
     bins = fio_data["jobs"][0][io_dir]["clat_ns"]["bins"]
     bins = {int(k) / 1000000: v for k, v in bins.items()}
     return merge_bins(bins, merge_count)
-
-
-def plot_latency(fig, clat, legend):
-    x = [float(k) for k in clat.keys()]
-    y = [v for v in clat.values()]
-    fig.plot(x, y, label=legend)
 
 
 def merge_bins(bins_data, count):
@@ -227,20 +213,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    # FIXME: remove
-    # fig = plotille.Figure()
-    # fig.width = terminal_width
-    # fig.height = 20
-    # fig.set_x_limits(min_=0, max_=100)
-    # fig.color_mode = "byte"
-    # fig.y_label = "Latency (ms)"
-    # fig.x_label = "Percentile"
-    #
-    # read_clat = extract_clat_data(fio_data, "read")
-    # plot_latency(fig, read_clat, "read")
-    #
-    # write_clat = extract_clat_data(fio_data, "write")
-    # plot_latency(fig, write_clat, "write")
-
-    # print(fig.show(legend=True))
