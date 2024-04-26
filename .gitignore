@@ -4,3 +4,6 @@ test_results.db
 junk
 config.toml
 linux
+test-archive
+venv
+*.json
