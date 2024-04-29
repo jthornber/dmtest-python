@@ -18,16 +18,15 @@ def default_fio_config(name: str):
         "bs": "4k",
         "ba": "4k",
         "size": "5G",
+        "io_size": "1G",
         "numjobs": "1",
         "direct": "1",
         "iodepth": "64",
-        "runtime": "20",
     }
 
     config["mix"] = {
         "name": name,
         "rw": "randrw",
-        "timeout": "30",
     }
 
     return config
