@@ -149,10 +149,13 @@ def scatter_zones(percent: int):
         dev_percents.append(e - b)
         last = e
 
+    if last < 100:
+        io_percents.append(0)
+        dev_percents.append(100 - last)
+
     io_percents = scale_ints(io_percents, 100)
 
     zones = list(zip(io_percents, dev_percents))
-    print(zones)
     return zones
 
 
@@ -187,9 +190,8 @@ def zoned_config(name, io_size, rwmixread, zones, iolog=False):
 # ---------------------------------
 
 def default_fio_config(name: str):
-    zones = scatter_zones(75)
+    zones = scatter_zones(10)
     return zoned_config(name, units.gig(1), 50, zones, True)
-
 
 # ---------------------------------
 
