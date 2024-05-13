@@ -11,17 +11,41 @@ import os
 
 # ---------------------------------
 
+# Returns a str representation of a size suitable for fio.  eg, 5G, 10M etc.
+def sectors_to_str(sectors):
+    # Each sector is typically 512 bytes
+    bytes = sectors * 512
 
-def uniform_config(name: str, iolog=False):
+    # Define thresholds and labels for units
+    units = [
+        (1024 ** 4, "T"),  # Terabytes
+        (1024 ** 3, "G"),  # Gigabytes
+        (1024 ** 2, "M"),  # Megabytes
+        (1024, "K")        # Kilobytes
+    ]
+
+    # Loop through each unit to find the most suitable one
+    for unit_size, unit_label in units:
+        if bytes >= unit_size:
+            quotient, remainder = divmod(bytes, unit_size)
+            if remainder == 0:
+                return f"{int(quotient)}{unit_label}"
+            else:
+                continue  # Continue to check for the next smaller unit
+
+    # If no suitable larger unit, return in bytes
+    return f"{bytes}B"
+
+
+def uniform_config(name: str, dev_size: int, io_percent: int, iolog=False):
     config = configparser.ConfigParser()
 
     config["global"] = {
         "randrepeat": "1",
         "ioengine": "libaio",
-        "bs": "4k",
         "ba": "4k",
-        "size": "5G",
-        "io_size": "1G",
+        "size": sectors_to_str(dev_size),
+        "io_size": sectors_to_str((dev_size * io_percent) / 100),
         "numjobs": "1",
         "direct": "1",
         "iodepth": "64",
@@ -30,6 +54,7 @@ def uniform_config(name: str, iolog=False):
     config["mix"] = {
         "name": name,
         "rw": "randrw",
+        "bsrange": "4k-64k",
     }
 
     if iolog:
@@ -179,6 +204,7 @@ def zoned_config(name, io_size, rwmixread, zones, iolog=False):
         "rwmixread": str(rwmixread),
         "random_distribution": build_zone_str(zones),
         "io_size": str(io_size * units.SECTOR_SIZE),
+        "bsrange": "4k-64k",
     }
 
     if iolog:
@@ -190,8 +216,10 @@ def zoned_config(name, io_size, rwmixread, zones, iolog=False):
 # ---------------------------------
 
 def default_fio_config(name: str):
-    zones = scatter_zones(10)
-    return zoned_config(name, units.gig(1), 50, zones, True)
+    return uniform_config(name, True)
+
+    # zones = scatter_zones(25)
+    # return zoned_config(name, units.gig(1), 50, zones, True)
 
 # ---------------------------------
 

@@ -29,15 +29,16 @@ def draw_heatmap(counts, width, height):
     print(cvs.plot())
 
 
-def read_iolog(filename):
+def read_iolog(filenames):
     results = []
-    with open(filename, "r") as file:
-        line = file.readline()
-        while line:
-            components = line.split()
-            if len(components) == 5:
-                results.append((components[2], int(components[3]), int(components[4])))
+    for filename in filenames:
+        with open(filename, "r") as file:
             line = file.readline()
+            while line:
+                components = line.split()
+                if len(components) == 5:
+                    results.append((components[2], int(components[3]), int(components[4])))
+                line = file.readline()
     return results
 
 
@@ -45,7 +46,10 @@ def estimate_dev_len(iolog):
     dlen = 0
     for _, loc, len in iolog:
         dlen = max(dlen, loc + len)
-    return dlen
+
+    # FIXME: hack
+    min_size = 5 * 1024 * 1024 * 1024
+    return max(dlen, min_size)
 
 
 def build_heatmaps(iolog, width, height):
@@ -107,10 +111,11 @@ def main():
     terminal_width = 160
 
     parser = argparse.ArgumentParser(description="Read and display file contents.")
-    parser.add_argument("filename", nargs=1, help="io-log to read")
+    parser.add_argument("filenames", nargs="+", help="io-log to read")
     args = parser.parse_args()
 
-    iolog = read_iolog(args.filename[0])
+    iolog = read_iolog(args.filenames)
+
     width = terminal_width
     height = 20
     reads, writes = build_heatmaps(iolog, width, height)
