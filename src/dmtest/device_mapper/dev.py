@@ -14,6 +14,10 @@ class Dev:
     def __str__(self):
         return self._path
 
+    # for PathLike protocol, e.g., open(some_dev,...)
+    def __fspath__(self):
+        return self._path
+
     @property
     def name(self):
         return self._name

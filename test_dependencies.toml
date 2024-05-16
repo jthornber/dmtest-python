@@ -249,3 +249,7 @@ targets = [ "vdo",]
 ["/vdo/dedupe/dedupe75"]
 executables = [ "blockdev", "dmsetup", "echo", 'vdoformat', "fsck.ext4", "mkfs.ext4", "mount", "umount",]
 targets = [ "vdo",]
+
+["/vdo/compress/compress"]
+executables = [ "blkdiscard", "blockdev", "dmsetup", "fio", "udevadm", "vdoformat",]
+targets = [ "vdo",]
