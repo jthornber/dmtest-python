@@ -89,6 +89,7 @@ targets_to_kmodules = {
     "thin": "dm_thin_pool",
     "linear": "device_mapper",
     "bufio_test": "dm_bufio_test",
+    "vdo": "dm_vdo",
 }
 
 

@@ -58,7 +58,8 @@ def remove(name):
 
 
 def message(name, sector, *args):
-    run(f"dmsetup message {name} {sector} {' '.join(args)}")
+    (_, stdout, _) = run(f"dmsetup message {name} {sector} {' '.join(args)}")
+    return stdout
 
 
 def status(name, *args):
