@@ -93,7 +93,7 @@ class Header:
             the seed calculated from the Header
 
         """
-        return int.from_bytes(self.to_bytes())
+        return int.from_bytes(self.to_bytes(), byteorder='big')
 
     def to_bytes(self) -> bytes:
         """get a bytes array representation of the Header
