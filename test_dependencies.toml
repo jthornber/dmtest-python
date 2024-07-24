@@ -234,6 +234,26 @@ targets = [ "thin", "thin-pool",]
 executables = [ "blockdev", "dd", "dmsetup", "echo", "fio", "fsck.ext4", "mkfs.ext4", "mount", "umount",]
 targets = [ "thin", "thin-pool",]
 
+["/thin_migrate/migrate/thin_to_thin"]
+executables = [ "blockdev", "dd", "dmsetup", "fio", "thin_migrate",]
+targets = [ "thin", "thin-pool",]
+
+["/thin_migrate/migrate/thin_to_file"]
+executables = [ "blockdev", "dd", "dmsetup", "fio", "thin_migrate", "unlink",]
+targets = [ "thin", "thin-pool",]
+
+["/thin_migrate/migrate/large_block_size"]
+executables = [ "blockdev", "dd", "dmsetup", "fio", "thin_migrate",]
+targets = [ "thin", "thin-pool",]
+
+["/thin_migrate/unit/insufficient_buffer_size"]
+executables = [ "blockdev", "dd", "dmsetup", "thin_migrate",]
+targets = [ "thin", "thin-pool",]
+
+["/thin_migrate/unit/input_none_thin_device"]
+executables = [ "thin_migrate",]
+targets = []
+
 ["/vdo/creation/create01"]
 executables = [ "blockdev", "dmsetup", "echo", "vdoformat",]
 targets = [ "vdo",]
