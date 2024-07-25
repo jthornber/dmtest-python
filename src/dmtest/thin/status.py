@@ -82,3 +82,25 @@ def _parse_pool_status(str):
 
 def pool_status(dev):
     return _parse_pool_status(dev.status())
+
+#---------------------------------
+
+def _parse_highest_mapped_sector(str):
+    if str == "-":
+        return None
+    else:
+        return int(str)
+
+
+def _parse_thin_status(str):
+    tokens = re.split(r"\s+", str)[3:]
+
+    h = {}
+    h["mapped-sectors"] = int(tokens[0])
+    h["highest-mapped-sector"] = _parse_highest_mapped_sector(tokens[1])
+
+    return h
+
+
+def thin_status(dev):
+    return _parse_thin_status(dev.status())
