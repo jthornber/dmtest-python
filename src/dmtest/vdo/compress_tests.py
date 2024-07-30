@@ -1,12 +1,10 @@
 from dmtest.assertions import assert_near, assert_equal
 from dmtest.vdo.utils import standard_vdo, wait_for_index, discard, fsync
-import dmtest.fs as fs
 import dmtest.process as process
 from dmtest.vdo.stats import vdo_stats
 
 import json
 import logging as log
-import os
 import tempfile
 import time
 

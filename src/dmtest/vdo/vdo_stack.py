@@ -5,7 +5,6 @@ import dmtest.utils as utils
 
 from dmtest.process import run
 
-
 class VDOStack:
     def __init__(self, data_dev, **opts):
         self._data_dev = data_dev
@@ -20,14 +19,13 @@ class VDOStack:
         self._opts = opts
 
         if self._format:
-            logical_size = "--logical-size=" + str(self._logical_size) + "B" 
+            logical_size = "--logical-size=" + str(self._logical_size) + "B"
             mem = "--uds-memory-size=" + str(self._alb_mem)
             sparse = ""
             if self._alb_sparse:
                 sparse = " --uds-sparse"
             dev = self._data_dev
             run(f"vdoformat --force {logical_size} {mem}{sparse} {dev}")
-
 
     def _vdo_table(self):
         return table.Table(
@@ -42,7 +40,5 @@ class VDOStack:
             )
         )
 
-
     def activate(self):
         return dmdev.dev(self._vdo_table())
-

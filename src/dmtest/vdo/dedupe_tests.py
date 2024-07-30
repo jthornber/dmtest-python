@@ -1,15 +1,8 @@
 from dmtest.assertions import assert_near
 from dmtest.vdo.utils import standard_vdo, wait_for_index
-import dmtest.fs as fs
 import dmtest.gendatablocks as generator
 import dmtest.process as process
-import dmtest.utils as utils
 import dmtest.vdo.stats as stats
-
-import os
-import re
-import logging as log
-import time
 
 def verify_dedupe(vdo, dedupe: float):
     # Wait for index to be online
