@@ -254,6 +254,26 @@ targets = [ "thin", "thin-pool",]
 executables = [ "thin_migrate",]
 targets = []
 
+["/thin_migrate/unit/device_not_present_in_metadata_snap"]
+executables = [ "blockdev", "dd", "dmsetup", "thin_migrate",]
+targets = [ "thin", "thin-pool",]
+
+["/thin_migrate/unit/output_none_block_device"]
+executables = [ "blockdev", "dd", "dmsetup", "thin_migrate", "truncate", "unlink",]
+targets = [ "thin", "thin-pool",]
+
+["/thin_migrate/unit/output_unsupported_file_type"]
+executables = [ "blockdev", "dd", "dmsetup", "thin_migrate",]
+targets = [ "thin", "thin-pool",]
+
+["/thin_migrate/unit/output_device_size_differs"]
+executables = [ "blockdev", "dd", "dmsetup", "thin_migrate",]
+targets = [ "thin", "thin-pool",]
+
+["/thin_migrate/unit/output_device_size_differs_in_file_mode"]
+executables = [ "blockdev", "dd", "dmsetup", "thin_migrate",]
+targets = [ "thin", "thin-pool",]
+
 ["/vdo/creation/create01"]
 executables = [ "blockdev", "dmsetup", "echo", "vdoformat",]
 targets = [ "vdo",]
