@@ -24,6 +24,7 @@ size={size}
 rw=write
 direct=1
 scramble_buffers=1
+refill_buffers=1
 buffer_compress_percentage={compress}
 buffer_compress_chunk=4k
 filename={filename}
