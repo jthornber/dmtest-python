@@ -8,6 +8,13 @@ import os
 import tempfile
 import time
 
+# dmtest.units.kilo etc count in sectors, not bytes
+kB = 1024
+MB = 1024 * kB
+GB = 1024 * MB
+
+BLOCK_SIZE = 4 * kB
+
 fio_config_template = """
 [stuff]
 randrepeat=1

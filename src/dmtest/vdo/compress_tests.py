@@ -1,17 +1,10 @@
 from dmtest.assertions import assert_equal, assert_near
 from dmtest.vdo.stats import vdo_stats
-from dmtest.vdo.utils import discard, fsync, run_fio, standard_vdo, wait_for_index
+from dmtest.vdo.utils import BLOCK_SIZE, MB, discard, fsync, run_fio, standard_vdo, wait_for_index
 import dmtest.process as process
 
 import logging as log
 import time
-
-# dmtest.units.kilo etc count in sectors, not bytes
-kB = 1024
-MB = 1024 * kB
-GB = 1024 * MB
-
-BLOCK_SIZE = 4 * kB
 
 def wait_until_packer_only(vdo):
     """Waits until all the I/Os being processed by a VDO device are
