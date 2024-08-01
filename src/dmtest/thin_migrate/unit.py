@@ -13,7 +13,7 @@ def t_insufficient_buffer_size(fix):
     thin_size = min(units.gig(1), utils.dev_size(data_dev) // 2)
 
     with standard_pool(fix, block_size = 4096, zero = True) as src_pool:
-        with ps.new_thin(src_pool, thin_size, 0) as src_thin:
+        with ps.new_thin(src_pool, thin_size, 0, read_only = True) as src_thin:
             with ps.new_thin(src_pool, thin_size, 1) as dest_thin:
                 with src_thin.pause():
                     src_pool.message(0, f"reserve_metadata_snap")
@@ -49,7 +49,7 @@ def t_device_not_present_in_metadata_snap(fix):
     with standard_pool(fix, block_size = 128, zero = True) as src_pool:
         src_pool.message(0, f"reserve_metadata_snap")
 
-        with ps.new_thin(src_pool, thin_size, 0) as src_thin:
+        with ps.new_thin(src_pool, thin_size, 0, read_only = True) as src_thin:
             with ps.new_thin(src_pool, thin_size, 1) as dest_thin:
                 try:
                     process.run(f"thin_migrate --source-dev {src_thin} --dest-dev {dest_thin}")
@@ -68,7 +68,7 @@ def t_output_none_block_device(fix):
     thin_size = min(units.gig(1), utils.dev_size(data_dev) // 2)
 
     with standard_pool(fix, block_size = 128, zero = True) as src_pool:
-        with ps.new_thin(src_pool, thin_size, 0) as src_thin:
+        with ps.new_thin(src_pool, thin_size, 0, read_only = True) as src_thin:
             src_pool.message(0, f"reserve_metadata_snap")
             process.run(f"truncate migrate_dest --size {thin_size * 512}")
 
@@ -90,7 +90,7 @@ def t_output_unsupported_file_type(fix):
     thin_size = min(units.gig(1), utils.dev_size(data_dev) // 2)
 
     with standard_pool(fix, block_size = 128, zero = True) as src_pool:
-        with ps.new_thin(src_pool, thin_size, 0) as src_thin:
+        with ps.new_thin(src_pool, thin_size, 0, read_only = True) as src_thin:
             src_pool.message(0, f"reserve_metadata_snap")
 
             try:
@@ -110,7 +110,7 @@ def t_output_device_size_differs(fix):
     thin_size = min(units.gig(1), utils.dev_size(data_dev) // 2)
 
     with standard_pool(fix, block_size = 128, zero = True) as src_pool:
-        with ps.new_thin(src_pool, thin_size, 0) as src_thin:
+        with ps.new_thin(src_pool, thin_size, 0, read_only = True) as src_thin:
             with ps.new_thin(src_pool, thin_size // 2, 1) as dest_thin:
                 src_pool.message(0, f"reserve_metadata_snap")
 
@@ -131,7 +131,7 @@ def t_output_device_size_differs_in_file_mode(fix):
     thin_size = min(units.gig(1), utils.dev_size(data_dev) // 2)
 
     with standard_pool(fix, block_size = 128, zero = True) as src_pool:
-        with ps.new_thin(src_pool, thin_size, 0) as src_thin:
+        with ps.new_thin(src_pool, thin_size, 0, read_only = True) as src_thin:
             with ps.new_thin(src_pool, thin_size // 2, 1) as dest_thin:
                 src_pool.message(0, f"reserve_metadata_snap")
 
