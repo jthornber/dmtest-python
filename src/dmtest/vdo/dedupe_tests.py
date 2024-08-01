@@ -84,6 +84,34 @@ def t_dedupeWithOffsetAndRestart(fix):
         # Verify the second set of data is still correct
         run_fio(vdo, size, size, verify=True)
 
+def t_dedupeWithOverwrite(fix):
+    """
+    Write the same data at the same offset twice and make sure that it verifies
+    cleanly.
+    """
+    block_count = 5000
+    size = int(block_count * BLOCK_SIZE)
+    with standard_vdo(fix) as vdo:
+        run_fio(vdo, size, 0)
+
+        vdo_stats_before = stats.vdo_stats(vdo)
+        assert_equal(vdo_stats_before['dataBlocksUsed'], block_count)
+        assert_equal(vdo_stats_before['hashLock']['dedupeAdviceValid'], 0)
+        assert_equal(vdo_stats_before['hashLock']['dedupeAdviceStale'], 0)
+        assert_equal(vdo_stats_before['dedupeAdviceTimeouts'], 0)
+        assert_equal(vdo_stats_before['biosIn']['write'], block_count)
+        assert_equal(vdo_stats_before['biosOut']['write'], block_count)
+
+        run_fio(vdo, size, 0)
+
+        vdo_stats_after = stats.vdo_stats(vdo)
+        assert_equal(vdo_stats_after['dataBlocksUsed'], block_count)
+        assert_equal(vdo_stats_after['hashLock']['dedupeAdviceValid'], block_count)
+        assert_equal(vdo_stats_after['hashLock']['dedupeAdviceStale'], 0)
+        assert_equal(vdo_stats_after['dedupeAdviceTimeouts'], 0)
+        assert_equal(vdo_stats_after['biosIn']['write'], int(block_count * 2))
+        assert_equal(vdo_stats_after['biosOut']['write'], block_count)
+
 def register(tests):
     tests.register_batch(
         "/vdo/dedupe/",
@@ -92,5 +120,6 @@ def register(tests):
             ("dedupe50", t_dedupe50),
             ("dedupe75", t_dedupe75),
             ("dedupeWithOffsetAndRestart", t_dedupeWithOffsetAndRestart),
+            ("dedupeWithOverwrite", t_dedupeWithOverwrite),
         ],
     )
