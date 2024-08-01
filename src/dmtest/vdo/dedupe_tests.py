@@ -1,15 +1,8 @@
-from dmtest.assertions import assert_near
-from dmtest.vdo.utils import standard_vdo, wait_for_index
-import dmtest.fs as fs
+from dmtest.assertions import assert_equal, assert_near
+from dmtest.vdo.utils import BLOCK_SIZE, fsync, run_fio, standard_vdo, wait_for_index
 import dmtest.gendatablocks as generator
 import dmtest.process as process
-import dmtest.utils as utils
 import dmtest.vdo.stats as stats
-
-import os
-import re
-import logging as log
-import time
 
 def verify_dedupe(vdo, dedupe: float):
     # Wait for index to be online
@@ -47,6 +40,49 @@ def t_dedupe75(fix):
     with standard_vdo(fix) as vdo:
         verify_dedupe(vdo, 0.75)
 
+def t_dedupeWithOffsetAndRestart(fix):
+    """
+    Write the same data at two offsets and ensure that VDO statistics reflect
+    the appropriate values
+
+    After writing the data for the first round:
+        dataBlocksUsed should equal the total number of blocks written
+        entriesIndexed should equal the total number of blocks written
+
+    After writing the same data a second time:
+        dedupeAdviceValid should equal the number of blocks written originally
+    """
+    block_count = 5000
+    size = int(block_count * BLOCK_SIZE)
+    with standard_vdo(fix) as vdo:
+        # Write {size} data at 0 offset
+        run_fio(vdo, size, 0)
+
+        # Ensure data is stable before checking stats
+        fsync(vdo)
+
+        # Verify first round statistics equal total data written
+        vdo_stats_before = stats.vdo_stats(vdo)
+        assert_equal(vdo_stats_before['dataBlocksUsed'], block_count)
+        assert_equal(vdo_stats_before['index']['entriesIndexed'], block_count)
+
+        # Write {size} data at {size} offset
+        run_fio(vdo, size, size)
+
+        # Ensure data is stable before checking stats
+        fsync(vdo)
+
+        # Verify second round statistics reflect effective deduplication
+        vdo_stats_after = stats.vdo_stats(vdo)
+        assert_equal(vdo_stats_after['hashLock']['dedupeAdviceValid'], block_count)
+
+    # Re-assemble the VDO device, but this time without formatting
+    with standard_vdo(fix, format=False) as vdo:
+        # Verify the first set of data is still correct
+        run_fio(vdo, size, 0, verify=True)
+
+        # Verify the second set of data is still correct
+        run_fio(vdo, size, size, verify=True)
 
 def register(tests):
     tests.register_batch(
@@ -55,5 +91,6 @@ def register(tests):
             ("dedupe0", t_dedupe0),
             ("dedupe50", t_dedupe50),
             ("dedupe75", t_dedupe75),
+            ("dedupeWithOffsetAndRestart", t_dedupeWithOffsetAndRestart),
         ],
     )

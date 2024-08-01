@@ -1,6 +1,5 @@
 import re
 
-
 def _parse_vdo_status(str):
     tokens = re.split(r"\s+", str)
 

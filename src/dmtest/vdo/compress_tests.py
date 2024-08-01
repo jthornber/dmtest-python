@@ -1,62 +1,10 @@
-from dmtest.assertions import assert_near, assert_equal
-from dmtest.vdo.utils import standard_vdo, wait_for_index, discard, fsync
-import dmtest.fs as fs
-import dmtest.process as process
+from dmtest.assertions import assert_equal, assert_near
 from dmtest.vdo.stats import vdo_stats
+from dmtest.vdo.utils import BLOCK_SIZE, MB, discard, fsync, run_fio, standard_vdo, wait_for_index
+import dmtest.process as process
 
-import json
 import logging as log
-import os
-import tempfile
 import time
-
-fio_config_template = """
-[stuff]
-randrepeat=1
-ioengine=libaio
-bs=4k
-size={size}
-rw=write
-direct=1
-scramble_buffers=1
-buffer_compress_percentage={compress}
-buffer_compress_chunk=4k
-filename={filename}
-iodepth=128
-offset={offset}
-end_fsync=0
-{maybe_verify}
-group_reporting=1
-"""
-
-# dmtest.units.kilo etc count in sectors, not bytes
-kB = 1024
-MB = 1024 * kB
-GB = 1024 * MB
-
-BLOCK_SIZE = 4 * kB
-
-def run_fio(dev, size, offset, verify = False, stats = True):
-    fio_config = fio_config_template.format(size=size,
-                                            offset=offset,
-                                            compress=74,
-                                            filename=str(dev),
-                                            maybe_verify = "verify_only" if verify else "")
-    log.info("fio config:\n" + fio_config)
-    with tempfile.NamedTemporaryFile('w') as conf:
-        conf.write(fio_config)
-        conf.flush()
-        if stats:
-            with tempfile.NamedTemporaryFile('w') as out:
-                process.run(f"fio {conf.name} --output={out.name} --output-format=json+")
-                fio_out = json.load(open(out.name, 'r'))
-                written = fio_out['jobs'][0]['write']['io_bytes'] # bytes
-                duration = fio_out['jobs'][0]['write']['runtime'] # msec
-                #log.info(fio_out)
-                log.info(f"wrote {written} bytes in {duration} msec")
-                return fio_out
-        else:
-            process.run(f"fio {conf.name}")
 
 def wait_until_packer_only(vdo):
     """Waits until all the I/Os being processed by a VDO device are
@@ -86,7 +34,7 @@ def t_compress(fix):
         log.info(f"data blocks used: {stats['dataBlocksUsed']}")
         wait_for_index(vdo)
         # No flushing here!
-        run_fio(vdo, size, 0)
+        run_fio(vdo, size, 0, compression=74)
         # Flushing will cause I/Os in the packer to be pushed out;
         # there could be a bin with only one entry, which will get
         # written out uncompressed, or two entries, but (with the
@@ -119,7 +67,7 @@ def t_compress(fix):
                      'dedupe advice valid (1st write)')
         # Write same data again, different location.
         # Confirm we deduplicate against compressed blocks.
-        run_fio(vdo, size, size)
+        run_fio(vdo, size, size, compression=74)
         stats2 = wait_until_packer_only(vdo)
         assert_equal(stats2['dataBlocksUsed'], stats['dataBlocksUsed'],
                      'data blocks used (2nd write)')
@@ -130,7 +78,7 @@ def t_compress(fix):
         assert_equal(stats2['hashLock']['dedupeAdviceValid'],
                      size_in_blocks, 'dedupe advice valid (2nd write)')
         # Confirm we can read back compressed data correctly.
-        run_fio(vdo, size, 0, verify=True, stats=False)
+        run_fio(vdo, size, 0, verify=True, stats=False, compression=74)
         # Check recovery of unreferenced compressed data.
         discard(vdo, 2 * size, 0)
         fsync(vdo)
