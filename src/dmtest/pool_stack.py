@@ -52,13 +52,13 @@ def _thin_table(pool, size, id, origin=None):
     return table.Table(targets.ThinTarget(size, pool.path, id, origin))
 
 
-def thin(pool, size, id, origin=None):
-    return dmdev.dev(_thin_table(pool, size, id, origin))
+def thin(pool, size, id, origin=None, read_only=False):
+    return dmdev.dev(_thin_table(pool, size, id, origin), read_only)
 
 
-def new_thin(pool, size, id, origin=None):
+def new_thin(pool, size, id, origin=None, read_only=False):
     pool.message(0, f"create_thin {id}")
-    return thin(pool, size, id, origin)
+    return thin(pool, size, id, origin, read_only)
 
 
 def thins(pool, size, *ids):
@@ -75,11 +75,11 @@ def new_thins(pool, size, ids):
     return thins(pool, size, *ids)
 
 
-def new_snap(pool, size, id, old_id, pause_dev=None, origin=None):
+def new_snap(pool, size, id, old_id, pause_dev=None, origin=None, read_only=False):
     if pause_dev:
         with pause_dev.pause():
             pool.message(0, f"create_snap {id} {old_id}")
     else:
         pool.message(0, f"create_snap {id} {old_id}")
 
-    return thin(pool, size, id, origin)
+    return thin(pool, size, id, origin, read_only)
