@@ -50,21 +50,22 @@ def t_migrate_thin_to_thin(fix):
         with ps.new_thin(src_pool, thin_size, 0) as src_thin:
             do_provision(src_thin)
 
-            with ps.new_thin(src_pool, thin_size, 1) as dest_thin:
-                with src_thin.pause():
+            with ps.new_snap(src_pool, thin_size, 1, 0, pause_dev = src_thin,
+                             read_only = True) as src_snap:
+                with ps.new_thin(src_pool, thin_size, 2) as dest_thin:
                     src_pool.message(0, f"reserve_metadata_snap")
 
-                ThinMigrate.migrate_to_thin(src_thin, dest_thin)
-                do_verify(dest_thin)
+                    ThinMigrate.migrate_to_thin(src_snap, dest_thin)
+                    do_verify(dest_thin)
 
-                dest_status = status.thin_status(dest_thin)
-                src_status = status.thin_status(src_thin)
-                assert_equal(dest_status['mapped-sectors'],
-                             src_status['mapped-sectors'])
-                assert_equal(dest_status['highest-mapped-sector'],
-                             src_status['highest-mapped-sector'])
+                    dest_status = status.thin_status(dest_thin)
+                    src_status = status.thin_status(src_thin)
+                    assert_equal(dest_status['mapped-sectors'],
+                                 src_status['mapped-sectors'])
+                    assert_equal(dest_status['highest-mapped-sector'],
+                                 src_status['highest-mapped-sector'])
 
-                src_pool.message(0, f"release_metadata_snap")
+                    src_pool.message(0, f"release_metadata_snap")
 
 
 def t_migrate_thin_to_file(fix):
@@ -75,16 +76,17 @@ def t_migrate_thin_to_file(fix):
         with ps.new_thin(src_pool, thin_size, 0) as src_thin:
             do_provision(src_thin)
 
-            with src_thin.pause():
+            with ps.new_snap(src_pool, thin_size, 1, 0, pause_dev = src_thin,
+                             read_only = True) as src_snap:
                 src_pool.message(0, f"reserve_metadata_snap")
 
-            ThinMigrate.migrate_to_file(src_thin, "migrate_dest")
+                ThinMigrate.migrate_to_file(src_snap, "migrate_dest")
 
-            try:
-                do_verify("migrate_dest")
-                process.run(f"unlink migrate_dest")
-            except:
-                raise
+                try:
+                    do_verify("migrate_dest")
+                    process.run(f"unlink migrate_dest")
+                except:
+                    raise
 
 
 def t_large_block_size(fix):
@@ -98,22 +100,24 @@ def t_large_block_size(fix):
         with ps.new_thin(src_pool, thin_size, 0) as src_thin:
             do_provision(src_thin)
 
-            with ps.new_thin(src_pool, thin_size, 1) as dest_thin:
+            with ps.new_snap(src_pool, thin_size, 1, 0, pause_dev = src_thin,
+                             read_only = True) as src_snap:
+                with ps.new_thin(src_pool, thin_size, 2) as dest_thin:
 
-                with src_thin.pause():
-                    src_pool.message(0, f"reserve_metadata_snap")
+                    with src_thin.pause():
+                        src_pool.message(0, f"reserve_metadata_snap")
 
-                ThinMigrate.migrate_to_thin(src_thin, dest_thin)
-                do_verify(dest_thin)
+                    ThinMigrate.migrate_to_thin(src_snap, dest_thin)
+                    do_verify(dest_thin)
 
-                dest_status = status.thin_status(dest_thin)
-                src_status = status.thin_status(src_thin)
-                assert_equal(dest_status['mapped-sectors'],
-                             src_status['mapped-sectors'])
-                assert_equal(dest_status['highest-mapped-sector'],
-                             src_status['highest-mapped-sector'])
+                    dest_status = status.thin_status(dest_thin)
+                    src_status = status.thin_status(src_thin)
+                    assert_equal(dest_status['mapped-sectors'],
+                                 src_status['mapped-sectors'])
+                    assert_equal(dest_status['highest-mapped-sector'],
+                                 src_status['highest-mapped-sector'])
 
-                src_pool.message(0, f"release_metadata_snap")
+                    src_pool.message(0, f"release_metadata_snap")
 
 
 def register(tests):
