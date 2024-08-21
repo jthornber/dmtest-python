@@ -231,7 +231,12 @@ class BlockStream(DataStream):
         bool
             True if the buffer has the same tag as this stream
         """
-        header = Header.from_bytes(buffer[:Header.len_as_bytes()])
+        try:
+            header = Header.from_bytes(buffer[:Header.len_as_bytes()])
+        except UnicodeDecodeError:
+            # If decoding failed, e.g., the content isn't ASCII, then
+            # we don't claim it.
+            return False
         return header.tag == self.tag
 
     def generate(self, block_number, block_size):
@@ -276,7 +281,7 @@ class ZeroStream(DataStream):
         bool
             True if the ZeroStream owns this buffer
         """
-        return (buffer[0] == b"\0") and (buffer[1] == b"\0")
+        return (buffer[0] == 0) and (buffer[1] == 0)
 
     def generate(self, block_number, block_size):
         """Generate a buffer for the ZeroStream at a given location
@@ -322,6 +327,9 @@ class BlockRange():
         self.create = False
         self.streams: List[DataStream] = []
 
+    def update_path(self, new_path: str):
+        self.path = self.validate_path(new_path)
+
     def report(self):
         """Report on all streams associated with this block range"""
         list(map(lambda x: x.report(self), self.streams))
@@ -360,8 +368,6 @@ class BlockRange():
         FileNotFoundError
 
         """
-        if value is None:
-            return None
         path = Path(value)
         if (path.is_file() or path.is_block_device()):
             return path

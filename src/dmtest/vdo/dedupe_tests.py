@@ -1,5 +1,5 @@
 from dmtest.assertions import assert_equal, assert_near
-from dmtest.vdo.utils import BLOCK_SIZE, fsync, run_fio, standard_vdo, wait_for_index
+from dmtest.vdo.utils import BLOCK_SIZE, standard_vdo, wait_for_index
 import dmtest.gendatablocks as generator
 import dmtest.process as process
 import dmtest.vdo.stats as stats
@@ -15,7 +15,7 @@ def verify_dedupe(vdo, dedupe: float):
 
     # Write 5000 4k blocks of specified dedupe
     br = generator.make_block_range(path=vdo.path, block_size=4096, block_count=5000)
-    br.write(tag="tag1", dedupe=dedupe, compress=0.0, direct=True, fsync=True)
+    br.write(tag="tag1", dedupe=dedupe, compress=0.0, fsync=True)
     # Grab the current stats and determine the difference between the two. This
     # will contain only the information related to just the writing. Compare
     # the expected dedupe rate vs the actual from the stats.
@@ -55,11 +55,13 @@ def t_dedupeWithOffsetAndRestart(fix):
     block_count = 5000
     size = block_count * BLOCK_SIZE
     with standard_vdo(fix) as vdo:
+        range1 = generator.make_block_range(path=vdo.path, block_size=BLOCK_SIZE,
+                                            block_count=block_count)
+        range2 = generator.make_block_range(path=vdo.path, block_size=BLOCK_SIZE,
+                                            block_count=block_count,
+                                            offset=block_count)
         # Write {size} data at 0 offset
-        run_fio(vdo, size, 0)
-
-        # Ensure data is stable before checking stats
-        fsync(vdo)
+        range1.write(tag="hello", dedupe=0, compress=0, fsync=True)
 
         # Verify first round statistics equal total data written
         vdo_stats_before = stats.vdo_stats(vdo)
@@ -67,10 +69,7 @@ def t_dedupeWithOffsetAndRestart(fix):
         assert_equal(vdo_stats_before['index']['entriesIndexed'], block_count)
 
         # Write {size} data at {size} offset
-        run_fio(vdo, size, size)
-
-        # Ensure data is stable before checking stats
-        fsync(vdo)
+        range2.write(tag="hello", dedupe=0, compress=0, fsync=True)
 
         # Verify second round statistics reflect effective deduplication
         vdo_stats_after = stats.vdo_stats(vdo)
@@ -78,11 +77,13 @@ def t_dedupeWithOffsetAndRestart(fix):
 
     # Re-assemble the VDO device, but this time without formatting
     with standard_vdo(fix, format=False) as vdo:
-        # Verify the first set of data is still correct
-        run_fio(vdo, size, 0, verify=True)
-
-        # Verify the second set of data is still correct
-        run_fio(vdo, size, size, verify=True)
+        range1.update_path(vdo.path)
+        range2.update_path(vdo.path)
+        process.run("udevadm settle")
+        # We don't care about waiting for the index if we're just
+        # reading.
+        range1.verify()
+        range2.verify()
 
 def t_dedupeWithOverwrite(fix):
     """
@@ -92,7 +93,9 @@ def t_dedupeWithOverwrite(fix):
     block_count = 5000
     size = block_count * BLOCK_SIZE
     with standard_vdo(fix) as vdo:
-        run_fio(vdo, size, 0)
+        range = generator.make_block_range(path=vdo.path, block_size=BLOCK_SIZE,
+                                           block_count=block_count)
+        range.write(tag="tomato", dedupe=0, compress=0, fsync=True)
 
         vdo_stats_before = stats.vdo_stats(vdo)
         assert_equal(vdo_stats_before['dataBlocksUsed'], block_count)
@@ -102,7 +105,7 @@ def t_dedupeWithOverwrite(fix):
         assert_equal(vdo_stats_before['biosIn']['write'], block_count)
         assert_equal(vdo_stats_before['biosOut']['write'], block_count)
 
-        run_fio(vdo, size, 0)
+        range.write(tag="tomato", dedupe=0, compress=0, fsync=True)
 
         vdo_stats_after = stats.vdo_stats(vdo)
         assert_equal(vdo_stats_after['dataBlocksUsed'], block_count)

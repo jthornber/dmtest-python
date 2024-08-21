@@ -1,6 +1,7 @@
 from dmtest.assertions import assert_equal, assert_near
+from dmtest.gendatablocks import make_block_range
 from dmtest.vdo.stats import vdo_stats
-from dmtest.vdo.utils import BLOCK_SIZE, MB, discard, fsync, run_fio, standard_vdo, wait_for_index
+from dmtest.vdo.utils import BLOCK_SIZE, MB, discard, fsync, standard_vdo, wait_for_index
 import dmtest.process as process
 
 import logging as log
@@ -24,6 +25,11 @@ def t_compress(fix):
     size = 4 * MB
     size_in_blocks = size // BLOCK_SIZE
     with standard_vdo(fix, compression="on") as vdo:
+        range1 = make_block_range(path=vdo.path, block_size=BLOCK_SIZE,
+                                  block_count=size_in_blocks)
+        range2 = make_block_range(path=vdo.path, block_size=BLOCK_SIZE,
+                                  block_count=size_in_blocks,
+                                  offset=size_in_blocks)
         process.run("udevadm settle")
         stats = vdo_stats(vdo)
         assert_equal(stats['dataBlocksUsed'], 0, 'data blocks used (init)')
@@ -34,7 +40,7 @@ def t_compress(fix):
         log.info(f"data blocks used: {stats['dataBlocksUsed']}")
         wait_for_index(vdo)
         # No flushing here!
-        run_fio(vdo, size, 0, compression=74)
+        range1.write(tag="tag1", dedupe=0, compress=0.74, fsync=False)
         # Flushing will cause I/Os in the packer to be pushed out;
         # there could be a bin with only one entry, which will get
         # written out uncompressed, or two entries, but (with the
@@ -67,7 +73,7 @@ def t_compress(fix):
                      'dedupe advice valid (1st write)')
         # Write same data again, different location.
         # Confirm we deduplicate against compressed blocks.
-        run_fio(vdo, size, size, compression=74)
+        range2.write(tag="tag1", dedupe=0, compress=0.74, fsync=False)
         stats2 = wait_until_packer_only(vdo)
         assert_equal(stats2['dataBlocksUsed'], stats['dataBlocksUsed'],
                      'data blocks used (2nd write)')
@@ -78,10 +84,14 @@ def t_compress(fix):
         assert_equal(stats2['hashLock']['dedupeAdviceValid'],
                      size_in_blocks, 'dedupe advice valid (2nd write)')
         # Confirm we can read back compressed data correctly.
-        run_fio(vdo, size, 0, verify=True, stats=False, compression=74)
+        range1.verify()
         # Check recovery of unreferenced compressed data.
         discard(vdo, 2 * size, 0)
+        range1.trim()
+        range2.trim()
         fsync(vdo)
+        range1.verify()
+        range2.verify()
         stats = vdo_stats(vdo)
         assert_equal(stats['dataBlocksUsed'], 0,
                      'data blocks used (discard)')
