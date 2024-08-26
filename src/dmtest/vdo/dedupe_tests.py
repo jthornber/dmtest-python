@@ -53,7 +53,7 @@ def t_dedupeWithOffsetAndRestart(fix):
         dedupeAdviceValid should equal the number of blocks written originally
     """
     block_count = 5000
-    size = int(block_count * BLOCK_SIZE)
+    size = block_count * BLOCK_SIZE
     with standard_vdo(fix) as vdo:
         # Write {size} data at 0 offset
         run_fio(vdo, size, 0)
@@ -90,7 +90,7 @@ def t_dedupeWithOverwrite(fix):
     cleanly.
     """
     block_count = 5000
-    size = int(block_count * BLOCK_SIZE)
+    size = block_count * BLOCK_SIZE
     with standard_vdo(fix) as vdo:
         run_fio(vdo, size, 0)
 
@@ -109,7 +109,7 @@ def t_dedupeWithOverwrite(fix):
         assert_equal(vdo_stats_after['hashLock']['dedupeAdviceValid'], block_count)
         assert_equal(vdo_stats_after['hashLock']['dedupeAdviceStale'], 0)
         assert_equal(vdo_stats_after['dedupeAdviceTimeouts'], 0)
-        assert_equal(vdo_stats_after['biosIn']['write'], int(block_count * 2))
+        assert_equal(vdo_stats_after['biosIn']['write'], block_count * 2)
         assert_equal(vdo_stats_after['biosOut']['write'], block_count)
 
 def register(tests):

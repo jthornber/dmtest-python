@@ -22,7 +22,7 @@ def wait_until_packer_only(vdo):
 
 def t_compress(fix):
     size = 4 * MB
-    size_in_blocks = int(size / BLOCK_SIZE)
+    size_in_blocks = size // BLOCK_SIZE
     with standard_vdo(fix, compression="on") as vdo:
         process.run("udevadm settle")
         stats = vdo_stats(vdo)
@@ -54,7 +54,7 @@ def t_compress(fix):
         stats = vdo_stats(vdo)
         assert_equal(stats['biosIn']['write'], size_in_blocks,
                      'write bios in (1st write)')
-        expected_size = int((size_in_blocks + 2) / 3)
+        expected_size = (size_in_blocks + 2) // 3
         # Some blocks in the packer may be written uncompressed when
         # we flush. That _should_ be only one, at most.
         assert_near(stats['dataBlocksUsed'], expected_size, 1,

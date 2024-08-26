@@ -30,11 +30,11 @@ class VDOStack:
     def _vdo_table(self):
         return table.Table(
             targets.VDOTarget(
-                int(self._logical_size / 512),
+                self._logical_size // 512,
                 self._data_dev,
-                int(self._physical_size / 4096),
+                self._physical_size // 4096,
                 self._mode,
-                int(self._block_map_cache / 4096),
+                self._block_map_cache // 4096,
                 self._block_map_period,
                 self._opts
             )
