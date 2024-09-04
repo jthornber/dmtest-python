@@ -1,6 +1,7 @@
 """ Write test data to a device or file"""
 import dmtest.process as process
 
+import logging
 import os
 import struct
 
@@ -207,16 +208,10 @@ class BlockStream(DataStream):
     def __init__(self,
                  tag: str,
                  dedupe: float = 0.0,
-                 compress: float = 0.0,
-                 direct: bool = False,
-                 sync: bool = False,
-                 fsync: bool = False):
+                 compress: float = 0.0):
         self.tag = tag
         self.dedupe = dedupe
         self.compress = compress
-        self.direct = direct
-        self.sync = sync
-        self.fsync = fsync
         self.number = 0
         super().__init__()
 
@@ -386,6 +381,7 @@ class BlockRange():
         if self.path is None:
             raise ValueError("the file/device path is invalid")
 
+        logging.info(f"verifying {self.block_count*self.block_size} bytes in {self.path} at {self.block_size*self.offset}")
         flags = os.O_RDONLY
         with os.fdopen(os.open(self.path, flags), "rb") as fd:
             self._seek(fd)
@@ -408,6 +404,8 @@ class BlockRange():
         CompareError
 
         """
+        if self.streams == []:
+            logging.warning("no streams available to claim data")
         for stream in self.streams:
             if stream.claim(actual):
                 expected = stream.generate(block_number, self.block_size)
@@ -437,7 +435,7 @@ class BlockRange():
         compress : float
             how much compressible data to write
         direct : bool
-            open the device with O_DIRECT
+            open the device with O_DIRECT (not yet implemented)
         sync : bool
             open the device with O_SYNC
         fsync : bool
@@ -446,6 +444,7 @@ class BlockRange():
         Raises
         ------
         ValueError
+        NotImplementedError
 
         """
         if tag is None:
@@ -459,21 +458,29 @@ class BlockRange():
         if (compress < 0.0) or (compress > 0.96):
             raise ValueError("the compression fraction " + str(compress)
                              + " is invalid")
-        stream = BlockStream(tag, dedupe, compress, direct, sync, fsync)
+        if direct:
+            # Direct I/O requires special handling to ensure proper
+            # alignment of the in-memory buffer being written to the
+            # destination. We don't do that yet.
+            raise NotImplementedError("direct I/O is not yet supported")
+        stream = BlockStream(tag, dedupe, compress)
 
         flags = os.O_WRONLY
-        if stream.sync:
+        if sync:
             flags |= os.O_SYNC
         if self.create:
             flags |= os.O_CREAT
 
+        logging.info(f"writing {self.block_count*self.block_size} bytes tagged \"{tag}\""
+                     f" to {self.path} at {self.block_size*self.offset} open flags {flags}")
         with os.fdopen(os.open(self.path, flags), "r+b") as fd:
             self._seek(fd)
             for n in range(0, self.block_count):
                 data = stream.generate(n, self.block_size)
                 fd.write(data)
                 stream.counter += 1
-            if stream.fsync:
+            fd.flush()
+            if fsync:
                 os.fsync(fd)
         self.streams.append(stream)
 

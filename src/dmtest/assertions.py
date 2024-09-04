@@ -21,3 +21,10 @@ def assert_near(actual, expected, delta, message=None):
         error_message = f"{message}: " if message else ""
         error_message += f"expected {expected}, but got {actual}, which is not within {delta}"
         raise AssertionError(error_message)
+
+
+def assert_string_in(actual, expected, message=None):
+    if expected not in actual:
+        error_message = f"{message}: " if message else ""
+        error_message += f"expected '{expected}', but got {actual}"
+        raise AssertionError(error_message)

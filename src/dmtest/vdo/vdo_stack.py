@@ -16,6 +16,7 @@ class VDOStack:
         self._logical_size = opts.pop("logical_size", 20 * 1024 * 1024 * 1024)
         self._alb_mem = opts.pop("albireo_mem", 0.25)
         self._alb_sparse = opts.pop("albireo_sparse", False)
+        self._slab_bits = opts.pop("slab_bits", None)
         self._opts = opts
 
         if self._format:
@@ -24,8 +25,11 @@ class VDOStack:
             sparse = ""
             if self._alb_sparse:
                 sparse = " --uds-sparse"
+            slab = ""
+            if self._slab_bits is not None:
+                slab = f" --slab-bits={self._slab_bits}"
             dev = self._data_dev
-            run(f"vdoformat --force {logical_size} {mem}{sparse} {dev}")
+            run(f"vdoformat --force {logical_size} {mem}{sparse}{slab} {dev}")
 
     def _vdo_table(self):
         return table.Table(
