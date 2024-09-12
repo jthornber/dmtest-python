@@ -51,9 +51,6 @@ def wait_for_index(dev):
     if status.vdo_status(dev)["index-state"] != "online":
         raise AssertionError("VDO not online within 30 seconds")
 
-def discard(dev, size, offset):
-    process.run(f"blkdiscard -o {offset} -l {size} {dev}")
-
 def fsync(dev):
     """Sync the specified device or file."""
     with open(dev, 'w') as thing:

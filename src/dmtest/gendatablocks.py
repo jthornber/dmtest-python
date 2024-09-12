@@ -1,4 +1,6 @@
 """ Write test data to a device or file"""
+import dmtest.process as process
+
 import os
 import struct
 
@@ -343,14 +345,14 @@ class BlockRange():
         """
         fd.seek(self.block_size * self.offset)
 
-    def trim(self):
-        """Trim the block range
-
-        This does not actually send discards. The assumption here is that discards
-        have already been sent. This merely will reset the block range so that it
-        will behave properly.
-
-        """
+    def trim(self, fsync=False):
+        """Trim the block range, if supported."""
+        byte_offset = self.block_size * self.offset
+        byte_size = self.block_size * self.block_count
+        process.run(f"blkdiscard -o {byte_offset} -l {byte_size} {self.path}")
+        if fsync:
+            with open(self.path, "w+") as f:
+                os.fsync(f.fileno())
         stream = ZeroStream()
         self.streams.clear()
         self.streams.append(stream)

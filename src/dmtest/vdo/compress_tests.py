@@ -1,7 +1,7 @@
 from dmtest.assertions import assert_equal, assert_near
 from dmtest.gendatablocks import make_block_range
 from dmtest.vdo.stats import vdo_stats
-from dmtest.vdo.utils import BLOCK_SIZE, MB, discard, fsync, standard_vdo, wait_for_index
+from dmtest.vdo.utils import BLOCK_SIZE, MB, fsync, standard_vdo, wait_for_index
 import dmtest.process as process
 
 import logging as log
@@ -86,10 +86,8 @@ def t_compress(fix):
         # Confirm we can read back compressed data correctly.
         range1.verify()
         # Check recovery of unreferenced compressed data.
-        discard(vdo, 2 * size, 0)
         range1.trim()
-        range2.trim()
-        fsync(vdo)
+        range2.trim(fsync=True)
         range1.verify()
         range2.verify()
         stats = vdo_stats(vdo)
