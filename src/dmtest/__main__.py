@@ -391,6 +391,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
                     else:
                         e = e.__context__
                     log.error(f"Triggered while handling Exception: {e}")
+                    log.error("export DMTEST_PY_VERBOSE_TB=1 for more info")
             elapsed = time.time() - start
 
             dmesg_log = get_dmesg_log(start)
