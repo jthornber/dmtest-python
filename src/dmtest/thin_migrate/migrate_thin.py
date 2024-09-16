@@ -34,12 +34,11 @@ def do_verify(path):
 
 #---------------------------------
 
-class ThinMigrate:
-    def migrate_to_thin(src_thin, dest_thin):
-        process.run(f"thin_migrate --source-dev {src_thin} --dest-dev {dest_thin}")
+def migrate_to_thin(src_thin, dest_thin):
+    process.run(f"thin_migrate --source-dev {src_thin} --dest-dev {dest_thin}")
 
-    def migrate_to_file(src_thin, dest_thin):
-        process.run(f"thin_migrate --source-dev {src_thin} --dest-file {dest_thin}")
+def migrate_to_file(src_thin, dest_thin):
+    process.run(f"thin_migrate --source-dev {src_thin} --dest-file {dest_thin}")
 
 
 def t_migrate_thin_to_thin(fix):
@@ -55,7 +54,7 @@ def t_migrate_thin_to_thin(fix):
                 with ps.new_thin(src_pool, thin_size, 2) as dest_thin:
                     src_pool.message(0, f"reserve_metadata_snap")
 
-                    ThinMigrate.migrate_to_thin(src_snap, dest_thin)
+                    migrate_to_thin(src_snap, dest_thin)
                     do_verify(dest_thin)
 
                     dest_status = status.thin_status(dest_thin)
@@ -80,7 +79,7 @@ def t_migrate_thin_to_file(fix):
                              read_only = True) as src_snap:
                 src_pool.message(0, f"reserve_metadata_snap")
 
-                ThinMigrate.migrate_to_file(src_snap, "migrate_dest")
+                migrate_to_file(src_snap, "migrate_dest")
 
                 try:
                     do_verify("migrate_dest")
@@ -107,7 +106,7 @@ def t_large_block_size(fix):
                     with src_thin.pause():
                         src_pool.message(0, f"reserve_metadata_snap")
 
-                    ThinMigrate.migrate_to_thin(src_snap, dest_thin)
+                    migrate_to_thin(src_snap, dest_thin)
                     do_verify(dest_thin)
 
                     dest_status = status.thin_status(dest_thin)

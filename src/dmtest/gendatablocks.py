@@ -324,7 +324,7 @@ class BlockRange():
 
     def report(self):
         """Report on all streams associated with this block range"""
-        list(map(lambda x: x.report(self), self.streams))
+        list(map(lambda x: x.report(), self.streams))
 
     def _seek(self, fd):
         """Seek to the start of the block range

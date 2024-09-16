@@ -73,7 +73,8 @@ class BlkTrace:
             raise
 
     def stop_blktrace(self):
-        self._blktrace.stdout.close()
+        if self._blktrace.stdout:
+            self._blktrace.stdout.close()
         self._blktrace.terminate()
         self._blktrace.wait()
 

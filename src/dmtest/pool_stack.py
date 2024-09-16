@@ -3,6 +3,11 @@ import dmtest.device_mapper.table as table
 import dmtest.device_mapper.targets as targets
 import dmtest.utils as utils
 
+from dmtest.device_mapper.dev import Dev
+from typing import Optional, Tuple, Iterator
+from contextlib import contextmanager
+
+#------------------------------------------------
 
 class PoolStack:
     def __init__(self, data_dev, metadata_dev, **opts):
@@ -47,35 +52,36 @@ class PoolStack:
     def block_size(self):
         return self._block_size
 
+#--------------------------------
 
-def _thin_table(pool, size, id, origin=None):
+def _thin_table(pool: Dev, size: int, id: int, origin: Optional[Dev] = None) -> table.Table:
     return table.Table(targets.ThinTarget(size, pool.path, id, origin))
 
 
-def thin(pool, size, id, origin=None, read_only=False):
+def thin(pool: Dev, size: int, id: int, origin: Optional[Dev] = None, read_only: bool =False) -> Dev:
     return dmdev.dev(_thin_table(pool, size, id, origin), read_only)
 
 
-def new_thin(pool, size, id, origin=None, read_only=False):
+def new_thin(pool: Dev, size: int, id: int, origin: Optional[Dev] = None, read_only: bool = False) -> Dev:
     pool.message(0, f"create_thin {id}")
     return thin(pool, size, id, origin, read_only)
 
-
-def thins(pool, size, *ids):
+@contextmanager
+def thins(pool: Dev, size: int, *ids: int) -> Iterator[Tuple[Dev, ...]]:
     def to_table(id):
         return _thin_table(pool, size, id)
 
-    return dmdev.devs(*list(map(to_table, ids)))
+    return dmdev.devs(*tuple(map(to_table, ids)))
 
 
-def new_thins(pool, size, ids):
+def new_thins(pool: Dev, size: int, ids: list[int]) -> Iterator[Tuple[Dev, ...]]:
     for id in ids:
         pool.message(0, f"create_thin {id}")
 
     return thins(pool, size, *ids)
 
 
-def new_snap(pool, size, id, old_id, pause_dev=None, origin=None, read_only=False):
+def new_snap(pool: Dev, size: int, id: int, old_id: int, pause_dev: Optional[Dev] = None, origin: Optional[Dev] = None, read_only: bool = False) -> Dev:
     if pause_dev:
         with pause_dev.pause():
             pool.message(0, f"create_snap {id} {old_id}")
@@ -83,3 +89,5 @@ def new_snap(pool, size, id, old_id, pause_dev=None, origin=None, read_only=Fals
         pool.message(0, f"create_snap {id} {old_id}")
 
     return thin(pool, size, id, origin, read_only)
+
+#------------------------------------------------

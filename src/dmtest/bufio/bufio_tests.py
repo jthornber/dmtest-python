@@ -601,7 +601,7 @@ def t_multiple_caches(fix):
 
     threads = []
 
-    for _ in range(nr_caches):
+    for i in range(nr_caches):
         tid = threading.Thread(
             target=run_cache, args=(fix, vm.table(volume_name(i)), nr_blocks)
         )

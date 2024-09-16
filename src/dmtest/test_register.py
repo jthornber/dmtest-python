@@ -30,7 +30,7 @@ class MissingTestDep(Exception):
 
 
 class Test(NamedTuple):
-    dep_fn: Callable[[], None]
+    dep_fn: Optional[Callable[[], None]]
     test_fn: Callable[[fixture.Fixture], None]
 
 
@@ -61,7 +61,7 @@ class TestRegister:
 
         for t in self._tests.keys():
             res_list = results.get_test_results(t, result_set)
-            if filt.matches(t, res_list):
+            if filt and filt.matches(t, res_list):
                 selected.append(t)
 
         return selected

@@ -4,13 +4,13 @@ from abc import ABC, abstractmethod
 
 class TestFilter(ABC):
     @abstractmethod
-    def matches(self, test_name, res_list):
-        pass
+    def matches(self, test_name, res_list) -> bool:
+        return False
 
 
 class SubstringFilter(TestFilter):
     def __init__(self, substring):
-        self.substring = substring
+        self.substring: str = substring
 
     def matches(self, test_name, res_list):
         return self.substring in test_name

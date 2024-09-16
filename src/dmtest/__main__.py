@@ -19,7 +19,7 @@ import time
 import traceback
 import subprocess
 import shutil
-from typing import Optional, NamedTuple, Sequence
+from typing import Optional, NamedTuple, Sequence, Tuple
 
 
 class TreeFormatter:
@@ -211,13 +211,25 @@ def cmd_log(tests: test_register.TestRegister, args, results: db.TestResults):
 # -----------------------------------------
 # 'compare' command
 
-def can_compare_times(old: Optional[AvgResult], new: Optional[AvgResult]) -> bool:
+def compare_times(old: Optional[AvgResult], new: Optional[AvgResult]) -> Optional[Tuple[float, float]]:
+    """
+    Compare times between two AvgResult objects.
+    
+    Returns:
+        Optional[Tuple[float, float]]: A tuple of (percentage difference, absolute difference) if comparable,
+                                       None if not comparable.
+    """
     if old is None or new is None:
-        return False
-    if old.nr_pass != 0 and new.nr_pass != 0:
-        return True
-    return old.pass_fail and old.pass_fail == new.pass_fail
-
+        return None
+    
+    if old.nr_pass == 0 or new.nr_pass == 0:
+        if not (old.pass_fail and old.pass_fail == new.pass_fail):
+            return None
+    
+    diff = new.duration - old.duration
+    percent_diff = (diff * 100) / old.duration if old.duration != 0 else float('inf')
+    
+    return percent_diff, diff
 
 def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults):
     if not args.old_result_set:
@@ -249,12 +261,13 @@ def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults
                 print(f"{new_result.nr_pass / new_result.nr_runs * 100:.0f}% PASS ", end="")
         else:
             print("- ", end="")
-        if can_compare_times(old_result, new_result):
-            diff = new_result.duration - old_result.duration
-            print(f"[{diff * 100 / old_result.duration:+.0f}% {diff:+.2f}s]")
+
+        time_comparison = compare_times(old_result, new_result)
+        if time_comparison:
+            percent_diff, diff = time_comparison
+            print(f"[{percent_diff:+.0f}% {diff:+.2f}s]")
         else:
             print("")
-
 
 # -----------------------------------------
 # 'list-runs' command
@@ -294,10 +307,11 @@ test_dep_path = "./test_dependencies.toml"
 class StringIOWithStderr(io.StringIO):
     def write(self, s):
         # Write to StringIO buffer
-        super().write(s)
+        chars_written = super().write(s)
 
         # Also write to stdout
         sys.stderr.write(s)
+        return chars_written
 
 
 def get_dmesg_log(start: float) -> str:
@@ -385,13 +399,17 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
                     log.error(f"Exception caught: \n{traceback.format_exc()}\n")
                 else:
                     log.error(f"Exception caught: {e}")
-                while e.__cause__ or e.__context__:
-                    if e.__cause__:
+
+                while e:
+                    if hasattr(e, '__cause__') and e.__cause__:
                         e = e.__cause__
-                    else:
+                    elif hasattr(e, '__context__') and e.__context__:
                         e = e.__context__
+                    else:
+                        break
                     log.error(f"Triggered while handling Exception: {e}")
                     log.error("export DMTEST_PY_VERBOSE_TB=1 for more info")
+
             elapsed = time.time() - start
 
             dmesg_log = get_dmesg_log(start)

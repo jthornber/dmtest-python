@@ -5,7 +5,7 @@ import dmtest.utils as utils
 from dmtest.assertions import assert_equal
 from dmtest.units import SECTOR_SIZE
 from dmtest.utils import wipe_device
-from typing import List
+from typing import List, Optional
 
 
 class Block:
@@ -96,7 +96,7 @@ class PatternStomper:
     def restamp(self, delta_index: int):
         self.write_blocks(self.deltas[delta_index])
 
-    def verify(self, delta_begin: int, delta_end: int = None):
+    def verify(self, delta_begin: int, delta_end: Optional[int] = None):
         if delta_end is None:
             delta_end = delta_begin
 

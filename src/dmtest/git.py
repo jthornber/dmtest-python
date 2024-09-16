@@ -8,6 +8,7 @@ from pathlib import Path
 from contextlib import contextmanager
 
 # --------------------------------
+
 kernel_source = os.getenv("DMTEST_KERNEL_SOURCE", "../linux")
 
 
@@ -60,7 +61,7 @@ def prepare(dev, fs_type):
 
 def prepare_no_discard(dev, fs_type):
     with utils.timed("git_prepare"):
-        prepare_(dev, fs_type, discard=False)
+        prepare_(dev, fs_type, format_opts={"discard": False})
 
 
 def extract(dev, fs_type, tags=None):

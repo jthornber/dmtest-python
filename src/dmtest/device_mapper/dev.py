@@ -1,6 +1,8 @@
 from contextlib import contextmanager
-import random
+from typing import Tuple, Generator
+from .table import Table
 
+import random
 import dmtest.device_mapper.interface as dm
 
 
@@ -90,7 +92,7 @@ def random_name():
     return f"test-dev-{random.randint(0, 1000000)}"
 
 
-def dev(table, read_only=False):
+def dev(table: Table, read_only: bool = False) -> Dev:
     """
     A context manager for creating, using, and automatically cleaning up a device-mapper device.
 
@@ -131,7 +133,7 @@ class DeviceCleanupError(Exception):
 
 
 @contextmanager
-def devs(*tables):
+def devs(*tables: Table) -> Generator[Tuple[Dev, ...], None, None]:
     """
     Creates one or more anonymous device-mapper devices and yields a tuple of
     the created devices.

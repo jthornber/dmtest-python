@@ -70,9 +70,9 @@ def loopback_context(test_dir):
 
 class LoopBackDevices(object):
 
-    def __init__(self, test_dir):
-        self.test_dir = test_dir
-        self.count = 0
+    def __init__(self, test_dir: str):
+        self.test_dir: str = test_dir
+        self.count: int = 0
         self.devices = {}
 
     def create_device(self, size_mib):
@@ -92,9 +92,10 @@ class LoopBackDevices(object):
         self.devices[token] = (device, backing_file)
         return token
 
-    def device_node(self, token):
+    def device_node(self, token) -> str:
         if token in self.devices:
             return self.devices[token][0]
+        return ""
 
     def destroy_all(self):
         # detach the devices and delete the file(s) and directory!
@@ -104,7 +105,9 @@ class LoopBackDevices(object):
 
         self.devices = {}
         self.count = 0
-        self.test_dir = None
+
+        # FIXME: find a better way to indicate this has already been destroyed
+        # self.test_dir = None
 
 
 POOL_SIZE_MB = 8000
@@ -269,7 +272,7 @@ class Data:
 
     def destroy(self):
         self.unmount()
-        if self.t == Data.Type.FILE:
+        if self.mount_path and self.t == Data.Type.FILE:
             if os.path.isfile(self.mount_path):
                 os.remove(self.mount_path)
 
