@@ -32,13 +32,15 @@ class TempFile:
         f = os.fdopen(fd, "w")
         self._f = f
         self._path = path
+        self._delete = True
 
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, _type, _value, _tb):
         self._f.close()
-        os.remove(self._path)
+        if self._delete:
+            os.remove(self._path)
 
     @property
     def file(self):
@@ -47,6 +49,9 @@ class TempFile:
     @property
     def path(self):
         return self._path
+
+    def no_delete(self):
+        self._delete = False
 
 
 def retry_if_fails(func, *, max_retries=1, retry_delay=1.0):

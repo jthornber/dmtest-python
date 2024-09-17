@@ -5,7 +5,7 @@ import dmtest.thin.external_origin_tests as thin_external_origin
 import dmtest.thin.fio as thin_fio
 import dmtest.thin.fs_bench as thin_fs_bench
 import dmtest.thin.snapshot_tests as thin_snapshot
-import dmtest.thin.thin_migrate as thin_migrate
+import dmtest.thin.trim as thin_trim
 
 
 def register(tests):
@@ -16,4 +16,4 @@ def register(tests):
     thin_external_origin.register(tests)
     thin_fio.register(tests)
     thin_fs_bench.register(tests)
-    thin_migrate.register(tests)
+    thin_trim.register(tests)

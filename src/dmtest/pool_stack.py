@@ -4,7 +4,7 @@ import dmtest.device_mapper.targets as targets
 import dmtest.utils as utils
 
 from dmtest.device_mapper.dev import Dev
-from typing import Optional, Tuple, Iterator
+from typing import Optional, Tuple, Iterator, Generator
 from contextlib import contextmanager
 
 #------------------------------------------------
@@ -66,15 +66,14 @@ def new_thin(pool: Dev, size: int, id: int, origin: Optional[Dev] = None, read_o
     pool.message(0, f"create_thin {id}")
     return thin(pool, size, id, origin, read_only)
 
-@contextmanager
-def thins(pool: Dev, size: int, *ids: int) -> Iterator[Tuple[Dev, ...]]:
+def thins(pool: Dev, size: int, *ids: int) -> Generator[Tuple[Dev, ...], None, None]:
     def to_table(id):
         return _thin_table(pool, size, id)
 
     return dmdev.devs(*tuple(map(to_table, ids)))
 
 
-def new_thins(pool: Dev, size: int, ids: list[int]) -> Iterator[Tuple[Dev, ...]]:
+def new_thins(pool: Dev, size: int, ids: list[int]) -> Generator[Tuple[Dev, ...], None, None]:
     for id in ids:
         pool.message(0, f"create_thin {id}")
 
