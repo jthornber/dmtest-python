@@ -10,6 +10,7 @@ import dmtest.thin_migrate.register as thin_migrate_register
 import dmtest.vdo.register as vdo_register
 import dmtest.dependency_tracker as dep
 import dmtest.test_filter as filter
+from dmtest.utils import get_dmesg_log
 import io
 import itertools
 import logging as log
@@ -298,30 +299,6 @@ class StringIOWithStderr(io.StringIO):
 
         # Also write to stdout
         sys.stderr.write(s)
-
-
-def get_dmesg_log(start: float) -> str:
-    start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
-    try:
-        sub_sec_start_str = start_str + f"{start % 1:f}"[1:]
-        return subprocess.run(
-            ["journalctl", "--dmesg", "--since", sub_sec_start_str],
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            check=True
-        ).stdout
-    except subprocess.CalledProcessError:
-        pass
-    try:
-        return subprocess.run(
-            ["journalctl", "--dmesg", "--since", start_str],
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-            check=True
-        ).stdout
-    except subprocess.CalledProcessError as e:
-        log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
-        return ""
 
 
 def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):

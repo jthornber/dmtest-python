@@ -5,7 +5,6 @@ import dmtest.utils as utils
 
 from dmtest.process import run
 
-
 class VDOStack:
     def __init__(self, data_dev, **opts):
         self._data_dev = data_dev
@@ -17,32 +16,33 @@ class VDOStack:
         self._logical_size = opts.pop("logical_size", 20 * 1024 * 1024 * 1024)
         self._alb_mem = opts.pop("albireo_mem", 0.25)
         self._alb_sparse = opts.pop("albireo_sparse", False)
+        self._slab_bits = opts.pop("slab_bits", None)
         self._opts = opts
 
         if self._format:
-            logical_size = "--logical-size=" + str(self._logical_size) + "B" 
+            logical_size = "--logical-size=" + str(self._logical_size) + "B"
             mem = "--uds-memory-size=" + str(self._alb_mem)
             sparse = ""
             if self._alb_sparse:
                 sparse = " --uds-sparse"
+            slab = ""
+            if self._slab_bits is not None:
+                slab = f" --slab-bits={self._slab_bits}"
             dev = self._data_dev
-            run(f"vdoformat --force {logical_size} {mem}{sparse} {dev}")
-
+            run(f"vdoformat --force {logical_size} {mem}{sparse}{slab} {dev}")
 
     def _vdo_table(self):
         return table.Table(
             targets.VDOTarget(
-                int(self._logical_size / 512),
+                self._logical_size // 512,
                 self._data_dev,
-                int(self._physical_size / 4096),
+                self._physical_size // 4096,
                 self._mode,
-                int(self._block_map_cache / 4096),
+                self._block_map_cache // 4096,
                 self._block_map_period,
                 self._opts
             )
         )
 
-
     def activate(self):
         return dmdev.dev(self._vdo_table())
-

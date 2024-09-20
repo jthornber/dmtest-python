@@ -1,4 +1,7 @@
 """ Write test data to a device or file"""
+import dmtest.process as process
+
+import logging
 import os
 import struct
 
@@ -205,16 +208,10 @@ class BlockStream(DataStream):
     def __init__(self,
                  tag: str,
                  dedupe: float = 0.0,
-                 compress: float = 0.0,
-                 direct: bool = False,
-                 sync: bool = False,
-                 fsync: bool = False):
+                 compress: float = 0.0):
         self.tag = tag
         self.dedupe = dedupe
         self.compress = compress
-        self.direct = direct
-        self.sync = sync
-        self.fsync = fsync
         self.number = 0
         super().__init__()
 
@@ -231,7 +228,12 @@ class BlockStream(DataStream):
         bool
             True if the buffer has the same tag as this stream
         """
-        header = Header.from_bytes(buffer[:Header.len_as_bytes()])
+        try:
+            header = Header.from_bytes(buffer[:Header.len_as_bytes()])
+        except UnicodeDecodeError:
+            # If decoding failed, e.g., the content isn't ASCII, then
+            # we don't claim it.
+            return False
         return header.tag == self.tag
 
     def generate(self, block_number, block_size):
@@ -276,7 +278,7 @@ class ZeroStream(DataStream):
         bool
             True if the ZeroStream owns this buffer
         """
-        return (buffer[0] == b"\0") and (buffer[1] == b"\0")
+        return (buffer[0] == 0) and (buffer[1] == 0)
 
     def generate(self, block_number, block_size):
         """Generate a buffer for the ZeroStream at a given location
@@ -322,6 +324,9 @@ class BlockRange():
         self.create = False
         self.streams: List[DataStream] = []
 
+    def update_path(self, new_path: str):
+        self.path = self.validate_path(new_path)
+
     def report(self):
         """Report on all streams associated with this block range"""
         list(map(lambda x: x.report(self), self.streams))
@@ -335,14 +340,14 @@ class BlockRange():
         """
         fd.seek(self.block_size * self.offset)
 
-    def trim(self):
-        """Trim the block range
-
-        This does not actually send discards. The assumption here is that discards
-        have already been sent. This merely will reset the block range so that it
-        will behave properly.
-
-        """
+    def trim(self, fsync=False):
+        """Trim the block range, if supported."""
+        byte_offset = self.block_size * self.offset
+        byte_size = self.block_size * self.block_count
+        process.run(f"blkdiscard -o {byte_offset} -l {byte_size} {self.path}")
+        if fsync:
+            with open(self.path, "w+") as f:
+                os.fsync(f.fileno())
         stream = ZeroStream()
         self.streams.clear()
         self.streams.append(stream)
@@ -360,8 +365,6 @@ class BlockRange():
         FileNotFoundError
 
         """
-        if value is None:
-            return None
         path = Path(value)
         if (path.is_file() or path.is_block_device()):
             return path
@@ -378,6 +381,7 @@ class BlockRange():
         if self.path is None:
             raise ValueError("the file/device path is invalid")
 
+        logging.info(f"verifying {self.block_count*self.block_size} bytes in {self.path} at {self.block_size*self.offset}")
         flags = os.O_RDONLY
         with os.fdopen(os.open(self.path, flags), "rb") as fd:
             self._seek(fd)
@@ -400,6 +404,8 @@ class BlockRange():
         CompareError
 
         """
+        if self.streams == []:
+            logging.warning("no streams available to claim data")
         for stream in self.streams:
             if stream.claim(actual):
                 expected = stream.generate(block_number, self.block_size)
@@ -429,7 +435,7 @@ class BlockRange():
         compress : float
             how much compressible data to write
         direct : bool
-            open the device with O_DIRECT
+            open the device with O_DIRECT (not yet implemented)
         sync : bool
             open the device with O_SYNC
         fsync : bool
@@ -438,6 +444,7 @@ class BlockRange():
         Raises
         ------
         ValueError
+        NotImplementedError
 
         """
         if tag is None:
@@ -451,21 +458,29 @@ class BlockRange():
         if (compress < 0.0) or (compress > 0.96):
             raise ValueError("the compression fraction " + str(compress)
                              + " is invalid")
-        stream = BlockStream(tag, dedupe, compress, direct, sync, fsync)
+        if direct:
+            # Direct I/O requires special handling to ensure proper
+            # alignment of the in-memory buffer being written to the
+            # destination. We don't do that yet.
+            raise NotImplementedError("direct I/O is not yet supported")
+        stream = BlockStream(tag, dedupe, compress)
 
         flags = os.O_WRONLY
-        if stream.sync:
+        if sync:
             flags |= os.O_SYNC
         if self.create:
             flags |= os.O_CREAT
 
+        logging.info(f"writing {self.block_count*self.block_size} bytes tagged \"{tag}\""
+                     f" to {self.path} at {self.block_size*self.offset} open flags {flags}")
         with os.fdopen(os.open(self.path, flags), "r+b") as fd:
             self._seek(fd)
             for n in range(0, self.block_count):
                 data = stream.generate(n, self.block_size)
                 fd.write(data)
                 stream.counter += 1
-            if stream.fsync:
+            fd.flush()
+            if fsync:
                 os.fsync(fd)
         self.streams.append(stream)
 

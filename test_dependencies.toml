@@ -275,21 +275,41 @@ executables = [ "blockdev", "dd", "dmsetup", "thin_migrate",]
 targets = [ "thin", "thin-pool",]
 
 ["/vdo/creation/create01"]
-executables = [ "blockdev", "dmsetup", "echo", "vdoformat",]
+executables = [ "blockdev", "dmsetup", "vdoformat",]
 targets = [ "vdo",]
 
 ["/vdo/dedupe/dedupe0"]
-executables = [ "blockdev", "dmsetup", "echo", "vdoformat", "fsck.ext4", "mkfs.ext4", "mount", "umount",]
+executables = [ "blockdev", "dmsetup", "udevadm", "vdoformat",]
 targets = [ "vdo",]
 
 ["/vdo/dedupe/dedupe50"]
-executables = [ "blockdev", "dmsetup", "echo", "vdoformat", "fsck.ext4", "mkfs.ext4", "mount", "umount",]
+executables = [ "blockdev", "dmsetup", "udevadm", "vdoformat",]
 targets = [ "vdo",]
 
 ["/vdo/dedupe/dedupe75"]
-executables = [ "blockdev", "dmsetup", "echo", "vdoformat", "fsck.ext4", "mkfs.ext4", "mount", "umount",]
+executables = [ "blockdev", "dmsetup", "udevadm", "vdoformat",]
 targets = [ "vdo",]
 
 ["/vdo/compress/compress"]
+executables = [ "blkdiscard", "blockdev", "dmsetup", "udevadm", "vdoformat",]
+targets = [ "vdo",]
+
+["/vdo/dedupe/dedupeWithOffsetAndRestart"]
+executables = [ "blockdev", "dmsetup", "udevadm", "vdoformat",]
+targets = [ "vdo",]
+
+["/vdo/dedupe/dedupeWithOverwrite"]
+executables = [ "blockdev", "dmsetup", "vdoformat",]
+targets = [ "vdo",]
+
+["/vdo/full"]
 executables = [ "blkdiscard", "blockdev", "dmsetup", "fio", "udevadm", "vdoformat",]
+targets = [ "linear", "vdo",]
+
+["/vdo/load_failure/bad_values"]
+executables = [ "blockdev", "dmsetup", "vdoformat",]
+targets = [ "vdo",]
+
+["/vdo/load_failure/corrupt_geometry"]
+executables = [ "blockdev", "dd", "dmsetup", "vdoformat",]
 targets = [ "vdo",]

@@ -2,6 +2,7 @@ import dmtest.process as process
 import dmtest.units as units
 import logging as log
 import os
+import subprocess
 import tempfile
 import time
 from contextlib import contextmanager
@@ -172,3 +173,27 @@ def change_dir(directory):
         yield
     finally:
         os.chdir(current_dir)
+
+
+def get_dmesg_log(start: float) -> str:
+    start_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start))
+    try:
+        sub_sec_start_str = start_str + f"{start % 1:f}"[1:]
+        return subprocess.run(
+            ["journalctl", "--dmesg", "--since", sub_sec_start_str],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True
+        ).stdout
+    except subprocess.CalledProcessError:
+        pass
+    try:
+        return subprocess.run(
+            ["journalctl", "--dmesg", "--since", start_str],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True
+        ).stdout
+    except subprocess.CalledProcessError as e:
+        log.error(f"Failed getting kernel logs: {e.returncode}\n{e.stderr}")
+        return ""
