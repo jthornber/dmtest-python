@@ -1,3 +1,9 @@
 metadata_dev = '/dev/vda'
 data_dev = '/dev/vdb'
 disable_by_id_check = true
+
+# Optional device path for dm-cache testing.
+# If set, this device serves as the fast device. Otherwise, the fast device
+# shares space with the cache metadata on the 'metadata_dev' device.
+#
+# cache_dev = '/dev/vdc'
