@@ -110,13 +110,13 @@ class CacheTarget(Target):
         block_size,
         features,
         policy,
-        keys,
+        policy_args,
     ):
         args = (
             [metadata_dev, cache_dev, origin_dev, block_size, len(features)]
             + [str(f) for f in features]
-            + [policy, 2 * len(keys)]
-            + [str(k).replace("_", "") + " " + str(v) for k, v in keys.items()]
+            + [policy, 2 * len(policy_args)]
+            + [str(k) + " " + str(v) for k, v in policy_args.items()]
         )
 
         super().__init__("cache", sector_count, *args)
