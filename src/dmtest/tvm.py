@@ -96,6 +96,9 @@ class Volume:
         self._targets: List[targets.LinearTarget] = []
         self._allocated = False
 
+    def size(self) -> int:
+        return sum(seg.length for seg in self._segments)
+
     def resize(self, allocator, new_length):
         raise NotImplementedError()
 
@@ -167,6 +170,9 @@ class VM:
         vol = self._volumes[name]
         self._allocator.release_segments(vol._segments)
         del self._volumes[name]
+
+    def size(self, name: str) -> int:
+        return self._volumes[name].size()
 
     def resize(self, name: str, new_size: int) -> None:
         self._check_exists(name)
