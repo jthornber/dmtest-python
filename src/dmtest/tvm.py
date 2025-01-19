@@ -124,15 +124,19 @@ class LinearVolume(Volume):
         self._targets += _segs_to_targets(new_segs)
         self._length = new_length
 
-    def allocate(self, allocator):
-        self._segments = allocator.allocate_segments(self._length)
+    def allocate(
+        self,
+        allocator,
+        segment_predicate: Optional[Callable[[Segment], bool]] = None,
+    ):
+        self._segments = allocator.allocate_segments(self._length, segment_predicate)
         self._targets = _segs_to_targets(self._segments)
         self._allocated = True
 
 
 # This class manages the allocation aspect of volume management.
 # It generates dm tables, but does _not_ manage activation.  Use
-# the usual with dev(table) as thin: method for that
+# the usual `with dmdev.dev(table) as thin:` method for that
 class VM:
     def __init__(self):
         self._allocator = Allocator()
@@ -149,9 +153,13 @@ class VM:
     def free_space(self) -> int:
         return self._allocator.free_space()
 
-    def add_volume(self, vol: Volume) -> None:
+    def add_volume(
+        self,
+        vol: Volume,
+        segment_predicate: Optional[Callable[[Segment], bool]] = None,
+    ) -> None:
         self._check_not_exist(vol._name)
-        vol.allocate(self._allocator)
+        vol.allocate(self._allocator, segment_predicate)
         self._volumes[vol._name] = vol
 
     def remove_volume(self, name: str) -> None:
