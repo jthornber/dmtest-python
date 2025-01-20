@@ -313,3 +313,11 @@ targets = [ "vdo",]
 ["/vdo/load_failure/corrupt_geometry"]
 executables = [ "blockdev", "dd", "dmsetup", "vdoformat",]
 targets = [ "vdo",]
+
+["/cache/creation/small_config_mq"]
+executables = [ "blockdev", "dd", "dmsetup",]
+targets = [ "cache", "linear",]
+
+["/cache/creation/small_config_smq"]
+executables = [ "blockdev", "dd", "dmsetup",]
+targets = [ "cache", "linear",]

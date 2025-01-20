@@ -5,6 +5,7 @@ import dmtest.fixture
 import dmtest.test_register as test_register
 import dmtest.blk_archive.rolling_snaps as blk_archive
 import dmtest.blk_archive.unit as blk_archive_unit
+import dmtest.cache.register as cache_register
 import dmtest.thin.register as thin_register
 import dmtest.thin_migrate.register as thin_migrate_register
 import dmtest.vdo.register as vdo_register
@@ -605,6 +606,7 @@ def main():
     tests = test_register.TestRegister()
     blk_archive.register(tests)
     blk_archive_unit.register(tests)
+    cache_register.register(tests)
     thin_register.register(tests)
     thin_migrate_register.register(tests)
     bufio.register(tests)

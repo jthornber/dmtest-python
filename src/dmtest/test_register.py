@@ -87,6 +87,7 @@ class TestRegister:
 targets_to_kmodules = {
     "thin-pool": "dm_thin_pool",
     "thin": "dm_thin_pool",
+    "cache": "dm_cache",
     "linear": "device_mapper",
     "bufio_test": "dm_bufio_test",
     "vdo": "dm_vdo",
