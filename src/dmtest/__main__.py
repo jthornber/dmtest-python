@@ -303,6 +303,9 @@ class StringIOWithStderr(io.StringIO):
 
 
 def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
+
+    exit_code = 0
+
     test_deps = dep.read_test_deps(test_dep_path)
 
     result_set = get_result_set(args)
@@ -359,6 +362,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
 
             except Exception as e:
                 passed = False
+                exit_code = 1
                 if bool(os.getenv("DMTEST_PY_VERBOSE_TB", False)):
                     log.error(f"Exception caught: \n{traceback.format_exc()}\n")
                 else:
@@ -375,6 +379,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
             if "BUG" in dmesg_log:
                 log.error("BUG in kernel log, see dmesg for more info")
                 passed = False
+                exit_code = 2
 
             pass_str = None
             if missing_dep:
@@ -393,7 +398,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
             results.insert_test_result(result, with_delete=(run_nr == 0))
 
     dep.write_test_deps(test_dep_path, test_deps)
-
+    os._exit(exit_code)
 
 # -----------------------------------------
 # 'health' command
