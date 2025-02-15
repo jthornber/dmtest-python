@@ -17,7 +17,7 @@ def get_free_space(stats):
 def t_full(fix):
     data_dev = fix.cfg["data_dev"]
     # Configure a small device so we can fill it quickly.
-    slab_bits = 8
+    slab_bits = 13
     size_gb = 3
     vm = tvm.VM()
     vm.add_allocation_volume(data_dev)
