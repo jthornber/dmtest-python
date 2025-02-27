@@ -167,7 +167,7 @@ def cmd_list(tests: test_register.TestRegister, args, results: db.TestResults):
         print("No matching tests found.")
 
     for p in paths:
-        print(f"{formatter.tree_line(p)}", end="")
+        print(f"{formatter.tree_line(p)}", end=" ")
         result = average_results(results.get_test_results(p, result_set, args.run_nr))
         if result is None:
             print("-")
@@ -236,7 +236,7 @@ def cmd_compare(tests: test_register.TestRegister, args, results: db.TestResults
     for p in paths:
         old_result = average_results(results.get_test_results(p, args.old_result_set))
         new_result = average_results(results.get_test_results(p, new_set))
-        print(f"{formatter.tree_line(p)}", end="")
+        print(f"{formatter.tree_line(p)}", end=" ")
         if old_result:
             if old_result.pass_fail:
                 print(f"{old_result.pass_fail} => ", end="")
@@ -273,7 +273,7 @@ def cmd_list_runs(tests: test_register.TestRegister, args, results: db.TestResul
     for p in paths:
         found = False
         res_list = results.get_test_results(p, result_set)
-        print(f"{formatter.tree_line(p)}", end="")
+        print(f"{formatter.tree_line(p)}", end=" ")
         for result in res_list:
             if args.run_state and result.pass_fail.lower() != args.run_state.lower():
                 continue
@@ -341,7 +341,7 @@ def cmd_run(tests: test_register.TestRegister, args, results: db.TestResults):
             buffer.seek(0)
             buffer.truncate()
 
-            print(f"{formatter.tree_line(p)}", end="", flush=True)
+            print(f"{formatter.tree_line(p)}", end=" ", flush=True)
             log.info(f"Running '{p}'")
 
             fix = dmtest.fixture.Fixture()
