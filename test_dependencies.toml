@@ -314,50 +314,26 @@ targets = [ "vdo",]
 executables = [ "blockdev", "dd", "dmsetup", "vdoformat",]
 targets = [ "vdo",]
 
-["/cache/creation/small_config_mq"]
+["/cache/creation/small_config"]
 executables = [ "blockdev", "cache_check", "dd", "dmsetup",]
 targets = [ "cache", "linear",]
 
-["/cache/creation/small_config_smq"]
-executables = [ "blockdev", "cache_check", "dd", "dmsetup",]
-targets = [ "cache", "linear",]
-
-["/cache/resize/expand_origin_with_reload_mq"]
+["/cache/resize/expand_origin_with_reload"]
 executables = [ "blockdev", "cache_check", "cache_dump", "cache_restore", "dmsetup",]
 targets = [ "cache", "linear",]
 
-["/cache/resize/expand_origin_with_reload_smq"]
+["/cache/resize/shrink_origin_with_reload_drops_mappings"]
 executables = [ "blockdev", "cache_check", "cache_dump", "cache_restore", "dmsetup",]
 targets = [ "cache", "linear",]
 
-["/cache/resize/shrink_origin_with_reload_drops_mappings_mq"]
+["/cache/resize/shrink_origin_with_teardown_drops_mappings"]
 executables = [ "blockdev", "cache_check", "cache_dump", "cache_restore", "dmsetup",]
 targets = [ "cache", "linear",]
 
-["/cache/resize/shrink_origin_with_reload_drops_mappings_smq"]
-executables = [ "blockdev", "cache_check", "cache_dump", "cache_restore", "dmsetup",]
-targets = [ "cache", "linear",]
-
-["/cache/resize/shrink_origin_with_teardown_drops_mappings_mq"]
-executables = [ "blockdev", "cache_check", "cache_dump", "cache_restore", "dmsetup",]
-targets = [ "cache", "linear",]
-
-["/cache/resize/shrink_origin_with_teardown_drops_mappings_smq"]
-executables = [ "blockdev", "cache_check", "cache_dump", "cache_restore", "dmsetup",]
-targets = [ "cache", "linear",]
-
-["/cache/resize/shrink_origin_with_reload_should_fail_if_blocks_dirty_mq"]
+["/cache/resize/shrink_origin_with_reload_should_fail_if_blocks_dirty"]
 executables = [ "blockdev", "cache_check", "cache_restore", "dmsetup",]
 targets = [ "cache", "linear",]
 
-["/cache/resize/shrink_origin_with_reload_should_fail_if_blocks_dirty_smq"]
-executables = [ "blockdev", "cache_check", "cache_restore", "dmsetup",]
-targets = [ "cache", "linear",]
-
-["/cache/resize/shrink_origin_with_teardown_should_fail_if_blocks_dirty_mq"]
-executables = [ "blockdev", "cache_check", "cache_restore", "dmsetup",]
-targets = [ "cache", "linear",]
-
-["/cache/resize/shrink_origin_with_teardown_should_fail_if_blocks_dirty_smq"]
+["/cache/resize/shrink_origin_with_teardown_should_fail_if_blocks_dirty"]
 executables = [ "blockdev", "cache_check", "cache_restore", "dmsetup",]
 targets = [ "cache", "linear",]

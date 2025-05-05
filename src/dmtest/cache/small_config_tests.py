@@ -5,11 +5,12 @@ from dmtest.cache_stack import ManagedCacheStack, CachePolicy
 
 #----------------------------------------------------------------
 
-def small_config(fix, policy):
+def t_small_config(fix):
     cfg = fix.cfg
     fast_dev = cfg["metadata_dev"]
     origin_dev = cfg["data_dev"]
     cache_dev = cfg.get("cache_dev", None)
+    policy_name = cfg.get("cache_policy", "smq")
 
     stack = ManagedCacheStack(
         fast_dev,
@@ -20,16 +21,10 @@ def small_config(fix, policy):
         block_size = units.kilo(32),
         cache_size = units.kilo(50),
         target_len = units.kilo(50),
-        policy = policy,
+        policy = CachePolicy(policy_name),
     )
     with stack.activate():
         pass
-
-def t_small_config_mq(fix):
-    small_config(fix, CachePolicy("mq"))
-
-def t_small_config_smq(fix):
-    small_config(fix, CachePolicy("smq"))
 
 #----------------------------------------------------------------
 
@@ -37,7 +32,6 @@ def register(tests):
     tests.register_batch(
         "/cache/creation/",
         [
-            ("small_config_mq", t_small_config_mq),
-            ("small_config_smq", t_small_config_smq),
+            ("small_config", t_small_config),
         ],
     )

@@ -7,3 +7,8 @@ disable_by_id_check = true
 # shares space with the cache metadata on the 'metadata_dev' device.
 #
 # cache_dev = '/dev/vdc'
+
+# Optional cache policy name to override the default in dm-cache tests.
+# If specified, all test devices use this policy instead of the default smq policy.
+#
+# cache_policy = 'mq'

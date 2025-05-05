@@ -76,11 +76,12 @@ def check_sized_metadata(cmeta, old_cache_dump, new_origin_size):
     check_mappings_truncation(cmeta, old_cache_dump, new_nr_origin_blocks)
 
 
-def expand_origin_with_reload(fix, policy_name):
+def t_expand_origin_with_reload(fix):
     cfg = fix.cfg
     fast_dev = cfg["metadata_dev"]
     origin_dev = cfg["data_dev"]
     cache_dev = cfg.get("cache_dev", None)
+    policy_name = cfg.get("cache_policy", "smq")
 
     block_size = units.kilo(32)
     cache_size = units.meg(128)
@@ -118,11 +119,12 @@ def expand_origin_with_reload(fix, policy_name):
         check_sized_metadata(cmeta, cdump.path, new_origin_size)
 
 
-def shrink_origin_with_reload_drops_mappings(fix, policy_name):
+def t_shrink_origin_with_reload_drops_mappings(fix):
     cfg = fix.cfg
     fast_dev = cfg["metadata_dev"]
     origin_dev = cfg["data_dev"]
     cache_dev = cfg.get("cache_dev", None)
+    policy_name = cfg.get("cache_policy", "smq")
 
     block_size = units.kilo(32)
     cache_size = units.meg(128)
@@ -163,11 +165,12 @@ def shrink_origin_with_reload_drops_mappings(fix, policy_name):
 # Actually there's no differences between teardown and reload while shrinking
 # the origin, as we always have to load a new dm-cache table to change the
 # target length. Here we test both the approaches to ensure test coverage.
-def shrink_origin_with_teardown_drops_mappings(fix, policy_name):
+def t_shrink_origin_with_teardown_drops_mappings(fix):
     cfg = fix.cfg
     fast_dev = cfg["metadata_dev"]
     origin_dev = cfg["data_dev"]
     cache_dev = cfg.get("cache_dev", None)
+    policy_name = cfg.get("cache_policy", "smq")
 
     block_size = units.kilo(32)
     cache_size = units.meg(128)
@@ -206,11 +209,12 @@ def shrink_origin_with_teardown_drops_mappings(fix, policy_name):
         check_sized_metadata(cmeta, cdump.path, new_origin_size)
 
 
-def shrink_origin_with_reload_should_fail_if_blocks_dirty(fix, policy_name):
+def t_shrink_origin_with_reload_should_fail_if_blocks_dirty(fix):
     cfg = fix.cfg
     fast_dev = cfg["metadata_dev"]
     origin_dev = cfg["data_dev"]
     cache_dev = cfg.get("cache_dev", None)
+    policy_name = cfg.get("cache_policy", "smq")
 
     block_size = units.kilo(32)
     cache_size = units.meg(128)
@@ -250,11 +254,12 @@ def shrink_origin_with_reload_should_fail_if_blocks_dirty(fix, policy_name):
             raise Exception("shrink cache origin succeeded without error")
 
 
-def shrink_origin_with_teardown_should_fail_if_blocks_dirty(fix, policy_name):
+def t_shrink_origin_with_teardown_should_fail_if_blocks_dirty(fix):
     cfg = fix.cfg
     fast_dev = cfg["metadata_dev"]
     origin_dev = cfg["data_dev"]
     cache_dev = cfg.get("cache_dev", None)
+    policy_name = cfg.get("cache_policy", "smq")
 
     block_size = units.kilo(32)
     cache_size = units.meg(128)
@@ -294,62 +299,21 @@ def shrink_origin_with_teardown_should_fail_if_blocks_dirty(fix, policy_name):
     else:
         raise Exception("shrink cache origin succeeded without error")
 
-
-def t_expand_origin_with_reload_mq(fix):
-    expand_origin_with_reload(fix, "mq")
-
-def t_expand_origin_with_reload_smq(fix):
-    expand_origin_with_reload(fix, "smq")
-
-def t_shrink_origin_with_reload_drops_mappings_mq(fix):
-    shrink_origin_with_reload_drops_mappings(fix, "mq")
-
-def t_shrink_origin_with_reload_drops_mappings_smq(fix):
-    shrink_origin_with_reload_drops_mappings(fix, "smq")
-
-def t_shrink_origin_with_teardown_drops_mappings_mq(fix):
-    shrink_origin_with_teardown_drops_mappings(fix, "mq")
-
-def t_shrink_origin_with_teardown_drops_mappings_smq(fix):
-    shrink_origin_with_teardown_drops_mappings(fix, "smq")
-
-def t_shrink_origin_with_reload_should_fail_if_blocks_dirty_mq(fix):
-    shrink_origin_with_reload_should_fail_if_blocks_dirty(fix, "mq")
-
-def t_shrink_origin_with_reload_should_fail_if_blocks_dirty_smq(fix):
-    shrink_origin_with_reload_should_fail_if_blocks_dirty(fix, "smq")
-
-def t_shrink_origin_with_teardown_should_fail_if_blocks_dirty_mq(fix):
-    shrink_origin_with_teardown_should_fail_if_blocks_dirty(fix, "mq")
-
-def t_shrink_origin_with_teardown_should_fail_if_blocks_dirty_smq(fix):
-    shrink_origin_with_teardown_should_fail_if_blocks_dirty(fix, "smq")
-
 #----------------------------------------------------------------
 
 def register(tests):
     tests.register_batch(
         "/cache/resize/",
         [
-            ("expand_origin_with_reload_mq",
-             t_expand_origin_with_reload_mq),
-            ("expand_origin_with_reload_smq",
-             t_expand_origin_with_reload_smq),
-            ("shrink_origin_with_reload_drops_mappings_mq",
-             t_shrink_origin_with_reload_drops_mappings_mq),
-            ("shrink_origin_with_reload_drops_mappings_smq",
-             t_shrink_origin_with_reload_drops_mappings_smq),
-            ("shrink_origin_with_teardown_drops_mappings_mq",
-             t_shrink_origin_with_teardown_drops_mappings_mq),
-            ("shrink_origin_with_teardown_drops_mappings_smq",
-             t_shrink_origin_with_teardown_drops_mappings_smq),
-            ("shrink_origin_with_reload_should_fail_if_blocks_dirty_mq",
-             t_shrink_origin_with_reload_should_fail_if_blocks_dirty_mq),
-            ("shrink_origin_with_reload_should_fail_if_blocks_dirty_smq",
-             t_shrink_origin_with_reload_should_fail_if_blocks_dirty_smq),
-            ("shrink_origin_with_teardown_should_fail_if_blocks_dirty_mq",
-             t_shrink_origin_with_teardown_should_fail_if_blocks_dirty_mq),
-            ("shrink_origin_with_teardown_should_fail_if_blocks_dirty_smq",
-             t_shrink_origin_with_teardown_should_fail_if_blocks_dirty_smq),
+            ("expand_origin_with_reload",
+             t_expand_origin_with_reload),
+            ("shrink_origin_with_reload_drops_mappings",
+             t_shrink_origin_with_reload_drops_mappings),
+            ("shrink_origin_with_teardown_drops_mappings",
+             t_shrink_origin_with_teardown_drops_mappings),
+            ("shrink_origin_with_reload_should_fail_if_blocks_dirty",
+             t_shrink_origin_with_reload_should_fail_if_blocks_dirty),
+            ("shrink_origin_with_teardown_should_fail_if_blocks_dirty",
+             t_shrink_origin_with_teardown_should_fail_if_blocks_dirty),
         ],
     )
